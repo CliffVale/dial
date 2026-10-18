@@ -33,6 +33,26 @@ enum DialSnapshots {
                 render(view, scheme: scheme, to: file)
             }
         }
+        // Framed like appfan-*.png: the dial's centre at 164, 176 on a 720 × 440pt canvas.
+        let switcher = AppSwitcher()
+        switcher.start()
+        let apps = AppsMode(switcher: switcher)
+        apps.refresh()
+        apps.turn(2)
+        for scheme in [ColorScheme.dark, .light] {
+            let model = DialModel.previewFan(apps: apps)
+            let presentation = DialPresentation()
+            presentation.isShown = true
+            let view = ZStack(alignment: .topLeading) {
+                AppFanView(apps: apps, isOpen: true, segmentAngle: DialGeometry.centreAngle(2), pressCount: 0)
+                    .offset(x: 164, y: 176)
+                DialView(model: model, presentation: presentation)
+                    .offset(x: 164 - 130, y: 176 - 130)
+            }
+            .frame(width: 720, height: 440, alignment: .topLeading)
+            .background(DialColor.canvas)
+            render(view, scheme: scheme, to: folder.appendingPathComponent("appfan-\(scheme == .dark ? "dark" : "light").png"))
+        }
         return true
     }
 

@@ -67,6 +67,8 @@ protocol Mode: AnyObject {
     var reading: HUDReading { get }
     /// Set by the model; call when `reading` changes on its own (a value read back later).
     var onReadingChange: (() -> Void)? { get set }
+    /// Keeps the HUD up, at the bottom of the screen, instead of lingering (Mission Control).
+    var hudIsSticky: Bool { get }
 
     func turn(_ steps: Int)
     /// Performs the press action and returns its name for the HUD ("Mute", "New tab").
@@ -81,6 +83,7 @@ extension Mode {
     var shortLabel: String { id.shortLabel }
     var kind: ModeKind { id.kind }
     var needsAccessibility: Bool { true }
+    var hudIsSticky: Bool { false }
     func activate() {}
     func deactivate() {}
 }

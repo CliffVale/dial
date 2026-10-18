@@ -45,6 +45,10 @@ final class DialModel {
     private(set) var hud: HUDContent?
     private(set) var hudRevision = 0
 
+    /// Apps mode keeps the dial out with a fan of app cards until a press,
+    /// a double press or the idle timeout (components/AppFan.md).
+    private(set) var isFanOpen = false
+
     /// When the latest detent arrived and the gap before it, for fast spin.
     private(set) var lastDetentAt: Date?
     private(set) var lastDetentInterval: TimeInterval?
@@ -86,7 +90,7 @@ final class DialModel {
         handlers[mode.id] = mode
         mode.onReadingChange = { [weak self, weak mode] in
             guard let self, let mode, let hud = self.hud, hud.mode == mode.id else { return }
-            self.hud = HUDContent(mode: mode.id, reading: mode.reading, afterChoose: false)
+            self.hud = HUDContent(mode: mode.id, reading: mode.reading, afterChoose: false, sticky: mode.hudIsSticky)
         }
     }
 
@@ -151,6 +155,22 @@ final class DialModel {
         case (.picking, .doublePress):
             endPicking(reason: "double press")
 
+        case (.inMode(.apps), .turn(let steps)):
+            recordDetent()
+            knobAngle += Double(steps) * DialGeometry.knobDetentDegrees
+            if !isFanOpen { openFan() }
+            handlers[.apps]?.turn(steps)
+            restartIdleTimer()
+        case (.inMode(.apps), .press):
+            guard let handler = handlers[.apps], hasPermission(for: handler) else { return }
+            pressCount += 1
+            idleTimer?.invalidate()
+            let action = handler.press()
+            log("mode", "Apps: press → \(action)")
+            // The card flashes, then the fan and dial fold up.
+            isFanOpen = false
+            showHUD(.apps, text: action, afterChoose: true)
+
         case (.inMode(let mode), .turn(let steps)):
             recordDetent()
             knobAngle += Double(steps) * DialGeometry.knobDetentDegrees
@@ -170,7 +190,7 @@ final class DialModel {
     private func showHUD(_ mode: ModeID, text: String? = nil, afterChoose: Bool = false) {
         var reading = handlers[mode]?.reading ?? .empty
         if let text { reading.text = text }
-        hud = HUDContent(mode: mode, reading: reading, afterChoose: afterChoose)
+        hud = HUDContent(mode: mode, reading: reading, afterChoose: afterChoose, sticky: handlers[mode]?.hudIsSticky ?? false)
         hudRevision += 1
     }
 
@@ -228,7 +248,10 @@ final class DialModel {
     // MARK: - Transitions
 
     private func beginPicking() {
+        // Double press closes Mission Control without changing anything.
+        if activeMode == .missionControl { handlers[.missionControl]?.deactivate() }
         phaseBeforePicking = phase
+        isFanOpen = false
         if let target = modes.firstIndex(of: activeMode ?? .volume) {
             moveSelection(toIndex: target)
         }
@@ -247,11 +270,22 @@ final class DialModel {
             return nil
         }()
         setPhase(.inMode(mode))
-        if previous != mode {
-            if let previous { handlers[previous]?.deactivate() }
-            handlers[mode]?.activate()
+        if let previous, previous != mode { handlers[previous]?.deactivate() }
+        // Even when it's the same mode again: choosing Mission Control reopens it.
+        handlers[mode]?.activate()
+        if mode == .apps {
+            // The dial stays out and the fan opens; no HUD under it.
+            openFan()
+            restartIdleTimer()
+        } else {
+            showHUD(mode, afterChoose: true)
         }
-        showHUD(mode, afterChoose: true)
+    }
+
+    private func openFan() {
+        (handlers[.apps] as? AppsMode)?.refresh()
+        isFanOpen = true
+        log("state", "app fan open")
     }
 
     private func endPicking(reason: String) {
@@ -273,7 +307,13 @@ final class DialModel {
     private func restartIdleTimer() {
         idleTimer?.invalidate()
         idleTimer = Timer.scheduledTimer(withTimeInterval: DialMotion.idleDismiss, repeats: false) { [weak self] _ in
-            self?.endPicking(reason: "\(Int(DialMotion.idleDismiss))s idle")
+            guard let self else { return }
+            if self.phase == .picking {
+                self.endPicking(reason: "\(Int(DialMotion.idleDismiss))s idle")
+            } else if self.isFanOpen {
+                self.isFanOpen = false
+                log("state", "app fan closed by \(Int(DialMotion.idleDismiss))s idle")
+            }
         }
     }
 
@@ -302,4 +342,17 @@ struct HUDContent: Equatable {
     let reading: HUDReading
     /// Shown after the dial folds up, rather than at once.
     let afterChoose: Bool
+    /// Stays up at the bottom of the screen until this turns false.
+    var sticky = false
+}
+
+extension DialModel {
+    /// A model in Apps mode with the fan open, for snapshots.
+    static func previewFan(apps: AppsMode) -> DialModel {
+        let model = preview(selecting: .apps)
+        model.register(apps)
+        model.phase = .inMode(.apps)
+        model.isFanOpen = true
+        return model
+    }
 }

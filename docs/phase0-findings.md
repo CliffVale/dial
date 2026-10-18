@@ -84,3 +84,11 @@ Found while building Phase 1 and tested with a second probe standing in for a mu
 - **A stopped app keeps the buttons.** Even with its engine stopped, its Now Playing info cleared and its commands disabled for 1 s, macOS still sent play/pause to Dial. Only when the process exits does the key reach the music app (within 0.4 s).
 - **So Now Playing lives in a helper process,** `dial-remote` in `Dial.app/Contents/Helpers`, with its own bundle id so `quit` and other Apple events still reach Dial. To pass a press on, Dial ends the helper, posts play/pause and starts a new helper. Dial also watches CoreAudio's per-process `IsRunning` (macOS 14.2+; `IsRunningOutput` changes but doesn't notify) and starts a new helper 1 s after another app begins playing.
 - **Side effect:** while Dial holds Now Playing, the keyboard's play/pause key also goes to Dial, and is treated as a dial press.
+
+## Phase 4: Mission Control (2026-10-19)
+
+- **Arrow keys don't move native Mission Control's selection.** In Art's test, every arrow logged no change, and the Dock exposes no selected or focused window.
+- **But Mission Control's windows are Accessibility buttons** under the Dock's `#mc` → `#mc.display` → `#mc.windows` group, each with its title and on-screen frame. `#mc.spaces` holds the desktops strip. `AXPress` on a window button brings that window forward and closes Mission Control.
+- **So Dial drives Mission Control natively** instead of building the ScreenCaptureKit fallback picker: choosing the mode opens it; turning moves through the window buttons in reading order and moves the pointer onto each, so Mission Control draws its own hover highlight and title; press sends `AXPress`; double press sends Escape. The pointer goes back where it was afterwards. No Screen Recording permission needed.
+- **The HUD over Mission Control** has to sit at screen-saver level; at status-bar level Mission Control covers it. It goes 16pt above the Dock, whose frame comes from the Dock's AX list, because Mission Control shows the Dock even when it auto-hides.
+- Whether Mission Control is open is read from the Dock (`#mc` exists) rather than tracked, because a press with nothing highlighted, or a click, can leave Dial's idea of it wrong.

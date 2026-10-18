@@ -100,6 +100,7 @@ struct RingView: View {
     let highlightAngle: Double
     /// Bumped on each press: the selected segment flashes from `iconIdle`.
     let pressCount: Int
+    var segmentOpacity: Double = 1
     let detentAnimation: Animation?
     let reduceMotion: Bool
 
@@ -116,6 +117,7 @@ struct RingView: View {
                 RingShape().fill(DialColor.ring)
                 RingDividers().stroke(DialColor.ringDivider, lineWidth: 1)
                 activeSegment
+                    .opacity(segmentOpacity)
                     .rotationEffect(.degrees(segmentRotation))
                     .animation(detentAnimation, value: highlightAngle)
             }

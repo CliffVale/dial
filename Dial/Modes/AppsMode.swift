@@ -1,13 +1,17 @@
 import AppKit
+import Observation
 
 /// Moves through running apps, most recently used first; press opens the one
-/// under the cursor. The card fan arrives in Phase 4.
+/// under the cursor. The card fan (FanView) reads `apps` and `selection`.
+@Observable
 final class AppsMode: Mode {
     let id = ModeID.apps
-    var onReadingChange: (() -> Void)?
+    @ObservationIgnored var onReadingChange: (() -> Void)?
 
-    private let switcher: AppSwitcher
+    @ObservationIgnored private let switcher: AppSwitcher
     private(set) var apps: [NSRunningApplication] = []
+    /// Index into `apps`; 0 is the app in front, so one detent is usually the
+    /// app you want.
     private(set) var selection = 0
 
     init(switcher: AppSwitcher) {
@@ -26,6 +30,12 @@ final class AppsMode: Mode {
         refresh()
     }
 
+    /// Fresh list with the front app selected, each time the fan opens.
+    func refresh() {
+        apps = switcher.recentApps
+        selection = 0
+    }
+
     func turn(_ steps: Int) {
         if apps.isEmpty { refresh() }
         guard !apps.isEmpty else { return }
@@ -37,13 +47,6 @@ final class AppsMode: Mode {
         guard let app = selectedApp else { return "No apps" }
         AppSwitcher.activate(app)
         log("mode", "Apps: opened \(app.localizedName ?? "?")")
-        // The opened app is now first; start the next turn from it.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.refresh() }
         return "Open"
-    }
-
-    private func refresh() {
-        apps = switcher.recentApps
-        selection = 0
     }
 }

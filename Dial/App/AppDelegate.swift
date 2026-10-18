@@ -26,10 +26,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let passPress: () -> Void = { [weak self] in self?.remote.passPlayPauseToMediaApp() }
         model.passPressToMediaApp = passPress
         appSwitcher.start()
+        let apps = AppsMode(switcher: appSwitcher)
         let modes: [Mode] = [
             VolumeMode(readVolume: { [weak self] in self?.encoder.currentVolume }, passPressToMediaApp: passPress),
             BrightnessMode(),
-            AppsMode(switcher: appSwitcher),
+            apps,
             MissionControlMode(),
             DesktopsMode(),
             TabsMode(),
@@ -48,7 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         debugWindow = DebugLogWindowController(model: model, encoder: encoder)
-        dialPanel = DialPanelController(model: model)
+        dialPanel = DialPanelController(model: model, apps: apps)
         statusItem = StatusItemController(model: model, encoder: encoder, presentation: dialPanel.presentation)
         dialPanel.anchor = { [weak self] in self?.statusItem.anchor }
         hudPanel = HUDPanelController(model: model)

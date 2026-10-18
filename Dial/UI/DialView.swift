@@ -37,6 +37,8 @@ struct DialView: View {
             RingView(
                 highlightAngle: model.highlightAngle,
                 pressCount: model.pressCount,
+                // Inside a mode (the app fan) the highlight holds, slightly receded.
+                segmentOpacity: model.isFanOpen ? 0.9 : 1,
                 detentAnimation: detentAnimation,
                 reduceMotion: reduceMotion
             )

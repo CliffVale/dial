@@ -38,11 +38,15 @@ struct DialAnchor {
 /// Shows the dial under the status item while the model is picking.
 @MainActor
 final class DialPanelController {
-    /// Room around the 260pt canvas for the ring's shadow (y 24, radius 24).
+    /// Room left of the 260pt canvas for the ring's shadow (y 24, radius 24).
     private static let sideMargin: CGFloat = 48
-    private static let bottomMargin: CGFloat = 64
+    /// The dial's centre, from the panel's left edge.
+    private static let dialCentreX = sideMargin + DialGeometry.canvas / 2
+    /// To the right the panel reaches past the app fan: r 160 plus a 208pt
+    /// card plus its shadow. Downward it clears the lowest card (40°).
+    private static let fanReach = AppFanView.radius + AppFanView.cardSize.width + 24
     private static var panelSize: CGSize {
-        CGSize(width: DialGeometry.canvas + sideMargin * 2, height: DialGeometry.canvas + bottomMargin)
+        CGSize(width: dialCentreX + fanReach, height: 400)
     }
     /// The ring's top edge sits `space-4` below the menu bar; it is 18pt below
     /// the canvas top, so the canvas starts 2pt above the panel's top edge.
@@ -60,25 +64,24 @@ final class DialPanelController {
 
     private let model: DialModel
     private let panel = DialPanel()
-    private var lastPhase: DialModel.Phase
+    private let apps: AppsMode?
+    private var wasVisible = false
     private var lastPressCount: Int
     private var pendingHide: DispatchWorkItem?
     private var pendingOrderOut: DispatchWorkItem?
 
-    init(model: DialModel) {
+    init(model: DialModel, apps: AppsMode?) {
         self.model = model
-        lastPhase = model.phase
+        self.apps = apps
         lastPressCount = model.pressCount
 
-        let content = DialView(
+        let content = DialPanelContent(
             model: model,
             presentation: presentation,
-            onSelect: { [weak model] mode in model?.select(mode) },
-            onPress: { [weak model] in model?.handle(.press, from: "mouse") }
+            apps: apps,
+            dialCentre: CGPoint(x: Self.dialCentreX, y: Self.canvasTop + DialGeometry.canvas / 2)
         )
-        .frame(width: DialGeometry.canvas, height: DialGeometry.canvas)
-        .offset(y: Self.canvasTop)
-        .frame(width: Self.panelSize.width, height: Self.panelSize.height, alignment: .top)
+        .frame(width: Self.panelSize.width, height: Self.panelSize.height, alignment: .topLeading)
 
         let hosting = FirstMouseHostingView(rootView: content)
         hosting.sizingOptions = []
@@ -93,28 +96,31 @@ final class DialPanelController {
     private func track() {
         withObservationTracking {
             _ = model.phase
+            _ = model.isFanOpen
         } onChange: { [weak self] in
             // onChange runs before the change lands; act on the new value.
             Task { @MainActor in
-                self?.phaseChanged()
+                self?.visibilityChanged()
                 self?.track()
             }
         }
     }
 
-    private func phaseChanged() {
-        let phase = model.phase
+    /// The dial is out while picking, and while the app fan is open.
+    private func visibilityChanged() {
+        let visible = model.phase == .picking || model.isFanOpen
         defer {
-            lastPhase = phase
+            wasVisible = visible
             lastPressCount = model.pressCount
         }
-        guard phase != lastPhase else { return }
-
-        if phase == .picking {
+        if visible && !wasVisible {
             show()
-        } else if lastPhase == .picking {
+        } else if visible {
+            // Picking to the fan, or back: already out.
+            pendingHide?.cancel()
+        } else if wasVisible {
             if model.pressCount != lastPressCount {
-                // Chosen: let the press play, then fold up.
+                // Chosen or opened: let the press play, then fold up.
                 schedule(hide, after: DialMotion.chooseFoldDelay)
             } else {
                 hide()
@@ -158,16 +164,48 @@ final class DialPanelController {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
-    /// Centres the dial under the glyph, sliding left or right to stay on
-    /// screen while the tether dot stays under the glyph.
+    /// Centres the dial under the glyph, sliding it left or right to keep the
+    /// dial on screen while the tether dot stays under the glyph. The fan may
+    /// run off the right edge; the dial never does.
     private func position() {
         guard let anchor = anchor() else { return }
         let size = Self.panelSize
-        let visible = anchor.screen.frame
-        let idealX = anchor.glyphCentreX - size.width / 2
-        let x = min(max(idealX, visible.minX), visible.maxX - size.width)
-        let offset = anchor.glyphCentreX - (x + size.width / 2)
+        let screen = anchor.screen.frame
+        let halfDial = DialGeometry.canvas / 2 + Self.sideMargin
+        let centre = min(max(anchor.glyphCentreX, screen.minX + halfDial), screen.maxX - halfDial)
+        let offset = anchor.glyphCentreX - centre
         presentation.tetherOffset = min(max(offset, -Self.maxTetherOffset), Self.maxTetherOffset)
+        let x = centre - Self.dialCentreX
         panel.setFrame(NSRect(x: x, y: anchor.menuBarBottom - size.height, width: size.width, height: size.height), display: false)
+    }
+}
+
+/// The dial, and the app fan to its right, laid out in the panel.
+private struct DialPanelContent: View {
+    let model: DialModel
+    let presentation: DialPresentation
+    let apps: AppsMode?
+    let dialCentre: CGPoint
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            if let apps {
+                AppFanView(
+                    apps: apps,
+                    isOpen: model.isFanOpen && presentation.isShown,
+                    segmentAngle: DialGeometry.centreAngle(model.segmentIndex(of: .apps)),
+                    pressCount: model.pressCount
+                )
+                .offset(x: dialCentre.x, y: dialCentre.y)
+            }
+            DialView(
+                model: model,
+                presentation: presentation,
+                onSelect: { [weak model] mode in model?.select(mode) },
+                onPress: { [weak model] in model?.handle(.press, from: "mouse") }
+            )
+            .frame(width: DialGeometry.canvas, height: DialGeometry.canvas)
+            .offset(x: dialCentre.x - DialGeometry.canvas / 2, y: dialCentre.y - DialGeometry.canvas / 2)
+        }
     }
 }
