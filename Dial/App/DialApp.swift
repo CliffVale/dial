@@ -5,10 +5,9 @@ struct DialApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        // The only window apart from the debug log. Built out in Phase 5.
+        // ⌘, while Dial is active; the menu bar item's menu opens the same view.
         Settings {
-            Text("Settings arrive in Phase 5.")
-                .padding(40)
+            SettingsView(store: appDelegate.settings)
         }
     }
 }

@@ -24,6 +24,11 @@ final class DialModel {
     private(set) var ringOrder: [ModeID]
     /// The modes the selection moves through, in ring order.
     private(set) var modes: [ModeID]
+    /// The settings' press choices (read through `pressAction(for:)`).
+    @ObservationIgnored private var pressActions: DialSettings
+
+    /// Events from the real buds, for onboarding's "try it" step.
+    private(set) var budsEvents = BudsEventCounts()
 
     private(set) var selectedMode: ModeID
 
@@ -80,10 +85,28 @@ final class DialModel {
         let enabled = settings.enabledModes
         ringOrder = settings.order
         modes = enabled
+        pressActions = settings
         selectedMode = enabled[0]
         let start = DialGeometry.centreAngle(settings.order.firstIndex(of: enabled[0]) ?? 0)
         highlightAngle = start
         knobAngle = start
+    }
+
+    /// Takes new settings live: segment order, which modes are on, press actions.
+    func apply(_ settings: DialSettings) {
+        ringOrder = settings.order
+        modes = settings.enabledModes
+        pressActions = settings
+        if !modes.contains(selectedMode) { selectedMode = modes[0] }
+        // The selected mode may have moved: point at its segment again, the short way round.
+        let target = DialGeometry.centreAngle(segmentIndex(of: selectedMode))
+        highlightAngle = target + 360 * ((highlightAngle - target) / 360).rounded()
+        if phase == .picking { knobAngle = highlightAngle }
+        if let active = activeMode, !modes.contains(active) {
+            log("state", "\(active.label) was turned off in Settings")
+            handlers[active]?.deactivate()
+            setPhase(.rest)
+        }
     }
 
     func register(_ mode: Mode) {
@@ -133,14 +156,27 @@ final class DialModel {
 
     func handle(_ event: DialEvent, from source: String) {
         log("event", "\(event) from \(source)  [state: \(phaseDescription)]")
+        if source == "volume" || source == "remote" {
+            budsEvents.record(event)
+        }
         switch (phase, event) {
         case (.rest, .turn):
             // The encoder isn't parking, so the volume already moved.
             showHUD(.volume)
         case (.rest, .press):
-            log("state", "press at rest → music app")
-            passPressToMediaApp?()
-            showHUD(.volume, text: "Play / Pause")
+            // At rest the dial is a volume knob, so Volume's press action applies.
+            let action = pressActions.pressAction(for: .volume)
+            switch action {
+            case .playPause:
+                log("state", "press at rest → music app")
+                passPressToMediaApp?()
+                showHUD(.volume, text: action.label)
+            case .nothing:
+                log("state", "press at rest: set to do nothing")
+            default:
+                guard Permissions.ensureAccessibility(reason: action.label.lowercased()) else { return }
+                showHUD(.volume, text: action.perform())
+            }
         case (.rest, .doublePress), (.inMode, .doublePress):
             beginPicking()
 
@@ -179,9 +215,15 @@ final class DialModel {
             showHUD(mode)
         case (.inMode(let mode), .press):
             guard let handler = handlers[mode], hasPermission(for: handler) else { return }
-            let action = handler.press()
-            log("mode", "\(mode.label): press → \(action)")
-            showHUD(mode, text: action)
+            let choice = pressActions.pressAction(for: mode)
+            if choice == .nothing {
+                log("mode", "\(mode.label): press set to do nothing")
+                return
+            }
+            // The mode's own action is its first option; the rest are general.
+            let name = choice == mode.pressOptions[0] ? handler.press() : choice.perform()
+            log("mode", "\(mode.label): press → \(name)")
+            showHUD(mode, text: name)
         }
     }
 
@@ -354,5 +396,20 @@ extension DialModel {
         model.phase = .inMode(.apps)
         model.isFanOpen = true
         return model
+    }
+}
+
+/// How many of each gesture have arrived from the buds since launch.
+struct BudsEventCounts: Equatable {
+    private(set) var turns = 0
+    private(set) var presses = 0
+    private(set) var doublePresses = 0
+
+    mutating func record(_ event: DialEvent) {
+        switch event {
+        case .turn: turns += 1
+        case .press: presses += 1
+        case .doublePress: doublePresses += 1
+        }
     }
 }

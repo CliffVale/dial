@@ -20,6 +20,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let menu = NSMenu()
 
     var onShowDebugLog: (() -> Void)?
+    var onShowSettings: (() -> Void)?
+    var onShowSetupGuide: (() -> Void)?
     var onReclaimMediaButtons: (() -> Void)?
 
     private let stateItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
@@ -108,6 +110,14 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(accessibilityItem)
         menu.addItem(.separator())
 
+        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+        let guide = NSMenuItem(title: "Setup Guide…", action: #selector(showSetupGuide), keyEquivalent: "")
+        guide.target = self
+        menu.addItem(guide)
+        menu.addItem(.separator())
+
         let debug = NSMenuItem(title: "Show Debug Log", action: #selector(showDebugLog), keyEquivalent: "l")
         debug.target = self
         menu.addItem(debug)
@@ -142,6 +152,14 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     @objc private func openAccessibilitySettings() {
         Permissions.openAccessibilitySettings()
+    }
+
+    @objc private func showSettings() {
+        onShowSettings?()
+    }
+
+    @objc private func showSetupGuide() {
+        onShowSetupGuide?()
     }
 
     @objc private func showDebugLog() {

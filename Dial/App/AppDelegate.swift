@@ -10,6 +10,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var dialPanel: DialPanelController!
     private var hudPanel: HUDPanelController!
     private let appSwitcher = AppSwitcher()
+    let settings = SettingsStore()
+    private var settingsWindow: SettingsWindowController!
+    private var onboardingWindow: OnboardingWindowController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if DialSnapshots.renderIfRequested() {
@@ -18,7 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         log("app", "Dial \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] ?? "?") started; log file \(DebugLog.shared.fileURL.path)")
 
-        model = DialModel(settings: .load())
+        model = DialModel(settings: settings.settings)
+        settings.onChange = { [weak self] new in self?.model.apply(new) }
         encoder = VolumeEncoder()
         remote = RemoteCommandSource()
         simulated = SimulatedInput()
@@ -57,6 +61,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.onShowDebugLog = { [weak self] in self?.debugWindow.show() }
         statusItem.onReclaimMediaButtons = { [weak self] in self?.remote.reclaim() }
         simulated.onReclaim = { [weak self] in self?.remote.reclaim() }
+
+        onboardingWindow = OnboardingWindowController(model: model, store: settings, budsConnected: { [weak self] in self?.encoder.deviceLabel != nil })
+        settingsWindow = SettingsWindowController(store: settings)
+        settingsWindow.onShowSetupGuide = { [weak self] in self?.onboardingWindow.show() }
+        statusItem.onShowSettings = { [weak self] in self?.settingsWindow.show() }
+        statusItem.onShowSetupGuide = { [weak self] in self?.onboardingWindow.show() }
+        if !settings.hasCompletedOnboarding {
+            onboardingWindow.show()
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

@@ -18,6 +18,8 @@ struct DialView: View {
     /// Mouse: a click on a segment selects it, a click on the knob presses.
     var onSelect: (ModeID) -> Void = { _ in }
     var onPress: () -> Void = {}
+    /// The tether dot belongs under the menu bar glyph; previews can leave it out.
+    var showsTether = true
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// How many times each segment has become selected; drives its icon tick.
@@ -43,7 +45,7 @@ struct DialView: View {
                 reduceMotion: reduceMotion
             )
             icons
-            tether
+            if showsTether { tether }
             well
             KnobView(
                 angle: model.knobAngle,
@@ -72,6 +74,7 @@ struct DialView: View {
             SegmentIcon(
                 mode: mode,
                 isSelected: mode == model.selectedMode,
+                isEnabled: model.modes.contains(mode),
                 tick: tickCounts[index, default: 0],
                 isShown: isShown,
                 summonDelay: DialMotion.iconStagger * Double(index),
@@ -135,6 +138,8 @@ struct DialView: View {
 private struct SegmentIcon: View {
     let mode: ModeID
     let isSelected: Bool
+    /// Modes turned off in Settings stay on the ring, dimmed, and are skipped.
+    let isEnabled: Bool
     let tick: Int
     let isShown: Bool
     let summonDelay: Double
@@ -143,6 +148,7 @@ private struct SegmentIcon: View {
     var body: some View {
         DialIconView(icon: DialIcon(mode))
             .foregroundStyle(isSelected ? DialColor.iconActive : DialColor.iconIdle)
+            .opacity(isEnabled ? 1 : 0.3)
             .animation(reduceMotion ? nil : DialMotion.detent, value: isSelected)
             .keyframeAnimator(initialValue: 1.0, trigger: reduceMotion ? 0 : tick) { content, scale in
                 content.scaleEffect(scale)
