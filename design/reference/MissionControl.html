@@ -1,0 +1,421 @@
+<!doctype html><html data-theme="dark"><head><meta charset=utf-8><title>Dial reference: MissionControl</title><script>var q=new URLSearchParams(location.search).get("theme");document.documentElement.dataset.theme=q||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark")</script><style>:root,[data-theme=dark]{--canvas:#18191c;--canvas-raised:#202125;--ring:#2a2c31;--ring-well:#141518;--ring-divider:#3a3c42;--segment-active:#4a4d54;--segment-hatch:#5c5f67;--icon-idle:#9d9fa5;--icon-active:#ffffff;--knob-face:#f3f3f1;--knob-shade:#d6d6d2;--knob-knurl:#b9b9b4;--knob-ink:#26304f;--glow:#ff7b3d;--focus:#ff7b3d;--ink:#e8e9ec;--ink-muted:#8e9197;--card:#26282d;--card-active:#30333a;--card-border:#3a3d44;--card-border-active:#6a6e77;--hairline:#2f3136;--menubar:#1f2023;--shadow-ring:0 24px 48px rgba(0,0,0,0.45);--shadow-knob:0 8px 14px rgba(0,0,0,0.40);--shadow-knob-pressed:0 2px 4px rgba(0,0,0,0.40);--shadow-card:0 6px 16px rgba(0,0,0,0.30);}[data-theme=light]{--canvas:#e6e6e3;--canvas-raised:#f4f4f2;--ring:#2c2e33;--ring-well:#ececea;--ring-divider:#3c3e44;--segment-active:#5a5d64;--segment-hatch:#6b6e75;--icon-idle:#a3a5aa;--icon-active:#ffffff;--knob-face:#f3f3f1;--knob-shade:#d6d6d2;--knob-knurl:#b9b9b4;--knob-ink:#26304f;--glow:#ff7b3d;--focus:#c2531f;--ink:#1d1e22;--ink-muted:#5f6167;--card:#ffffff;--card-active:#f1f1ef;--card-border:#d6d6d2;--card-border-active:#9a9da3;--hairline:#d0d0cc;--menubar:#f2f2f0;--shadow-ring:0 22px 40px rgba(20,22,28,0.28);--shadow-knob:0 8px 14px rgba(0,0,0,0.30);--shadow-knob-pressed:0 2px 4px rgba(0,0,0,0.30);--shadow-card:0 6px 16px rgba(20,22,28,0.10);}:root{--space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-6:24px;--space-8:32px;--radius-sm:6px;--radius-md:10px;--radius-lg:14px;--radius-pill:999px;--ring-radius-outer:112px;--ring-radius-inner:68px;--ring-gap:48deg;--segment-lift:6px;--knob-radius:49px;--knob-detent:24deg;--icon-size:18px;--icon-stroke:1.5px;--dur-detent:160ms;--dur-detent-fast:70ms;--dur-press-down:90ms;--dur-press-up:220ms;--dur-summon:320ms;--dur-dismiss:180ms;--dur-stagger:18ms;--dur-hud:200ms;--hud-linger:1200ms;--idle-dismiss:4000ms;--ease-out:cubic-bezier(0.2, 0.9, 0.25, 1);--ease-in:cubic-bezier(0.4, 0, 1, 1);--ease-spring:cubic-bezier(0.34, 1.36, 0.64, 1);--ease-detent:cubic-bezier(0.25, 1.25, 0.5, 1);--font-sans:-apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, system-ui, sans-serif;--font-mono:"SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;}@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap");
+
+/* Dial kit styles. Every colour and timing comes from tokens.css. */
+.dk-stage{background:var(--canvas);color:var(--ink);font-family:var(--font-sans);-webkit-font-smoothing:antialiased}
+
+/* ---------- Dial ---------- */
+.dk-dial{position:relative;width:260px;height:260px;outline:none;transform-origin:50% 0%;
+  transition:opacity var(--dur-summon) var(--ease-out),transform var(--dur-summon) var(--ease-spring),filter var(--dur-summon) var(--ease-out)}
+.dk-dial.is-hidden{opacity:0;transform:translateY(-28px) scale(.7);filter:blur(6px);pointer-events:none;
+  transition-duration:var(--dur-dismiss);transition-timing-function:var(--ease-in)}
+.dk-dial:focus-visible{outline:2px solid var(--focus);outline-offset:4px;border-radius:50%}
+.dk-svg{display:block;width:100%;height:100%;overflow:visible}
+.dk-ringwrap{filter:drop-shadow(0 18px 26px rgba(0,0,0,.38))}
+.dk-ring{fill:var(--ring);stroke:var(--ring);stroke-linejoin:round}
+.dk-divider{stroke:var(--ring-divider);stroke-width:1}
+.dk-active{transform-box:view-box;transform-origin:130px 130px;transition:transform var(--dur-detent) var(--ease-detent)}
+.dk-active-fill{fill:var(--segment-active);stroke:var(--segment-active);stroke-linejoin:round}
+.dk-hatch-line{fill:var(--segment-hatch)}
+.dk-item{color:var(--icon-idle);transform-box:fill-box;transform-origin:center;
+  transition:color 140ms ease,opacity 240ms var(--ease-out),transform 260ms var(--ease-spring)}
+.dk-item.is-active{color:var(--icon-active)}
+.dk-item.is-tick{animation:dk-tick var(--dur-detent) var(--ease-spring)}
+@keyframes dk-tick{0%{transform:scale(1)}45%{transform:scale(1.18)}100%{transform:scale(1)}}
+.dk-dial.is-hidden .dk-item{opacity:0;transform:scale(.4);transition-delay:0ms!important}
+.dk-hit{fill:#00000000;cursor:pointer}
+.dk-well{fill:var(--ring-well)}
+.dk-knob-enter{transform-box:view-box;transform-origin:130px 130px;transition:transform 460ms var(--ease-spring)}
+.dk-dial.is-hidden .dk-knob-enter{transform:rotate(-90deg) scale(.8)}
+.dk-knob-press{transform-box:view-box;transform-origin:130px 130px;cursor:pointer;
+  filter:drop-shadow(0 8px 10px rgba(0,0,0,.38));
+  transition:transform var(--dur-press-up) var(--ease-spring),filter var(--dur-press-up) var(--ease-out)}
+.dk-dial.is-pressed .dk-knob-press{transform:scale(.92);filter:drop-shadow(0 2px 3px rgba(0,0,0,.38));
+  transition-duration:var(--dur-press-down);transition-timing-function:var(--ease-in)}
+.dk-knob-rot{transform-box:view-box;transform-origin:130px 130px;transition:transform var(--dur-detent) var(--ease-detent)}
+.dk-knurl{fill:var(--knob-knurl)}
+.dk-teeth{stroke:var(--knob-face);stroke-width:1.1}
+.dk-face-a{stop-color:var(--knob-face)}
+.dk-face-b{stop-color:var(--knob-shade)}
+.dk-rim{fill:none;stroke:var(--knob-shade);stroke-width:1}
+.dk-mark{stroke:var(--knob-ink);stroke-width:2;stroke-linecap:round}
+.dk-knob-label{color:var(--knob-ink);transform-box:fill-box;transform-origin:center}
+.dk-knob-label.is-swap{animation:dk-swap 180ms var(--ease-out)}
+@keyframes dk-swap{0%{opacity:0;transform:translateY(4px) scale(.96)}100%{opacity:1;transform:none}}
+.dk-knob-text{fill:var(--knob-ink);font:600 10px/1 var(--font-sans);letter-spacing:.02em;text-anchor:middle}
+.dk-rimlight{fill:none;stroke:var(--glow);stroke-width:2;opacity:.55}
+.dk-glow{fill:none;stroke:var(--glow);stroke-width:3;opacity:0;transform-box:view-box;transform-origin:130px 130px}
+.dk-dial.is-glow .dk-glow{animation:dk-glow 560ms var(--ease-out)}
+@keyframes dk-glow{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.24)}}
+.dk-dial.is-glow .dk-active-fill{animation:dk-flash 360ms var(--ease-out)}
+@keyframes dk-flash{0%{fill:var(--icon-idle);stroke:var(--icon-idle)}100%{fill:var(--segment-active);stroke:var(--segment-active)}}
+.dk-tether{fill:var(--glow)}
+.dk-dial.is-fast .dk-active,.dk-dial.is-fast .dk-knob-rot{transition-duration:var(--dur-detent-fast);transition-timing-function:linear}
+.dk-dial.is-moded .dk-active{opacity:.9}
+
+/* ---------- HUD pill ---------- */
+.dk-hud{display:inline-flex;align-items:center;gap:var(--space-2);height:34px;padding:0 14px 0 11px;box-sizing:border-box;
+  border-radius:var(--radius-pill);background:var(--card);border:1px solid var(--card-border);box-shadow:var(--shadow-card);
+  color:var(--ink);font:600 12px/16px var(--font-sans);white-space:nowrap;transform-origin:50% 0;
+  transition:opacity var(--dur-hud) var(--ease-out),transform var(--dur-hud) var(--ease-spring)}
+.dk-hud.is-hidden{opacity:0;transform:translateY(-8px) scale(.9);transition-timing-function:var(--ease-in)}
+.dk-hud-icon{display:flex}
+.dk-hud-meter{position:relative;width:72px;height:4px;border-radius:2px;background:var(--hairline);overflow:hidden}
+.dk-hud-meter[hidden]{display:none}
+.dk-hud-meter i{position:absolute;left:0;top:0;bottom:0;background:var(--ink);border-radius:2px;transition:width var(--dur-detent) var(--ease-out)}
+.dk-hud-value{display:inline-block;font:500 12px/16px var(--font-mono);color:var(--ink-muted);min-width:24px;text-align:right}
+.dk-hud-value.is-bump{animation:dk-bump 180ms var(--ease-spring)}
+@keyframes dk-bump{45%{transform:translateY(-2px);color:var(--ink)}}
+
+/* ---------- Review controls ---------- */
+.dk-controls{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.dk-chip{appearance:none;-webkit-appearance:none;border:1px solid var(--card-border);background:var(--card);color:var(--ink);
+  font:500 12px/16px var(--font-sans);padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;transition:background 120ms ease,transform 120ms var(--ease-spring)}
+.dk-chip:hover{background:var(--card-active)}
+.dk-chip:active{transform:scale(.96)}
+.dk-chip:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.dk-chip kbd{font:500 11px/14px var(--font-mono);color:var(--ink-muted);margin-left:6px}
+.dk-hintline{font:500 11px/14px var(--font-sans);color:var(--ink-muted);text-align:center;letter-spacing:.01em}
+
+@media (prefers-reduced-motion:reduce){
+  .dk-dial,.dk-active,.dk-knob-rot,.dk-knob-press,.dk-knob-enter,.dk-item,.dk-hud{transition-duration:1ms!important}
+  .dk-item.is-tick,.dk-dial.is-glow .dk-glow,.dk-dial.is-glow .dk-active-fill,.dk-knob-label.is-swap,.dk-hud-value.is-bump{animation:none}
+  .dk-dial.is-hidden{transform:none;filter:none}
+}
+body{margin:0}</style><script>/* Dial kit: geometry, icons, a vanilla controller and the HUD, shared by the previews. */
+(function () {
+  var NS = 'http://www.w3.org/2000/svg';
+  var G = { c: 130, R: 112, r: 68, gap: 48, lift: 6, corner: 10, knob: 49, iconR: 90, detent: 24 };
+
+  var ICON = {
+    volume: '<path d="M11 5 6.5 9H3.5v6h3l4.5 4z"/><path d="M15.5 9a4.5 4.5 0 0 1 0 6"/><path d="M18.5 6a8.5 8.5 0 0 1 0 12"/>',
+    brightness: '<circle cx="12" cy="12" r="3.75"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/>',
+    apps: '<circle cx="6" cy="6" r="1.6"/><circle cx="12" cy="6" r="1.6"/><circle cx="18" cy="6" r="1.6"/><circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/><circle cx="6" cy="18" r="1.6"/><circle cx="12" cy="18" r="1.6"/><circle cx="18" cy="18" r="1.6"/>',
+    mission: '<rect x="2.5" y="10" width="8.5" height="7.5" rx="1.5"/><rect x="13" y="10" width="8.5" height="7.5" rx="1.5"/><path d="M9 6l3-3 3 3"/><path d="M5 21h14"/>',
+    desktops: '<rect x="2.5" y="4" width="14" height="10" rx="1.5"/><path d="M7.5 18h11a2 2 0 0 0 2-2V8.5"/>',
+    tabs: '<rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9.5h18"/><path d="M9.5 5v4.5"/>',
+    scroll: '<rect x="7" y="3" width="10" height="18" rx="5"/><path d="M12 7v3"/>',
+    undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+    slides: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M12 16v4M8 20h8"/><path d="m10.5 8 4 2-4 2z"/>',
+    ring: '<path d="M8.6 3.3A9 9 0 1 0 15.4 3.3"/><circle cx="12" cy="12" r="3.2"/>'
+  };
+
+  var ITEMS = [
+    { id: 'volume', label: 'Volume', short: 'Volume', kind: 'level', turn: 'Volume down / up', press: 'Mute' },
+    { id: 'brightness', label: 'Brightness', short: 'Bright', kind: 'level', turn: 'Dimmer / brighter', press: 'Night Shift' },
+    { id: 'apps', label: 'Apps', short: 'Apps', kind: 'list', turn: 'Move through apps', press: 'Open the app' },
+    { id: 'mission', label: 'Mission Control', short: 'Mission', kind: 'list', turn: 'Move between windows', press: 'Bring window forward' },
+    { id: 'desktops', label: 'Desktops', short: 'Desktops', kind: 'step', turn: 'Previous / next desktop', press: 'Show desktop' },
+    { id: 'tabs', label: 'Tabs', short: 'Tabs', kind: 'step', turn: 'Previous / next tab', press: 'New tab' },
+    { id: 'scroll', label: 'Scroll', short: 'Scroll', kind: 'step', turn: 'Scroll up / down', press: 'Switch to sideways' },
+    { id: 'undo', label: 'Undo / Redo', short: 'Undo', kind: 'step', turn: 'Undo / redo', press: 'Save' },
+    { id: 'slides', label: 'Slides', short: 'Slides', kind: 'step', turn: 'Previous / next slide', press: 'Start / end show' }
+  ];
+  var N = ITEMS.length;
+  var SEG = (360 - G.gap) / N;
+
+  function f(n) { return Math.round(n * 100) / 100; }
+  function pt(r, a) { var t = a * Math.PI / 180; return [G.c + r * Math.sin(t), G.c - r * Math.cos(t)]; }
+  function sector(r0, r1, a0, a1) {
+    var L = (a1 - a0) > 180 ? 1 : 0, p1 = pt(r1, a0), p2 = pt(r1, a1), p3 = pt(r0, a1), p4 = pt(r0, a0);
+    return 'M' + f(p1[0]) + ' ' + f(p1[1]) + 'A' + r1 + ' ' + r1 + ' 0 ' + L + ' 1 ' + f(p2[0]) + ' ' + f(p2[1]) +
+      'L' + f(p3[0]) + ' ' + f(p3[1]) + 'A' + r0 + ' ' + r0 + ' 0 ' + L + ' 0 ' + f(p4[0]) + ' ' + f(p4[1]) + 'Z';
+  }
+  /* Rounded sector: inset by cr, then a 2*cr round-joined stroke grows it back with soft corners. */
+  function rsector(r0, r1, a0, a1, cr) {
+    var d = Math.asin(cr / ((r0 + r1) / 2)) * 180 / Math.PI;
+    return sector(r0 + cr, r1 - cr, a0 + d, a1 - d);
+  }
+  function center(i) { return G.gap / 2 + SEG * (i + 0.5); }
+  function make(tag, attrs, parent) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function icon(id, size) {
+    return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON[id] + '</svg>';
+  }
+  function restart(node, cls) { node.classList.remove(cls); void node.getBoundingClientRect(); node.classList.add(cls); }
+
+  var uid = 0;
+  function mount(host, opts) {
+    opts = opts || {};
+    var id = 'dk' + (++uid), index = opts.index || 0, angle = center(index), knobAngle = angle;
+    var moded = false, lastStep = 0, fastTimer = null, ev = {};
+
+    var wrap = document.createElement('div');
+    wrap.className = 'dk-dial' + (opts.hidden ? ' is-hidden' : '');
+    wrap.tabIndex = opts.focusable === false ? -1 : 0;
+    wrap.setAttribute('role', 'listbox');
+    var svg = make('svg', { viewBox: '0 0 260 260', class: 'dk-svg' }, wrap);
+    var defs = make('defs', {}, svg);
+    defs.innerHTML =
+      '<pattern id="' + id + 'h" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect class="dk-hatch-line" width="1.6" height="5"/></pattern>' +
+      '<radialGradient id="' + id + 'f" cx="38%" cy="32%" r="78%"><stop offset="0" class="dk-face-a"/><stop offset="1" class="dk-face-b"/></radialGradient>';
+
+    var ringwrap = make('g', { class: 'dk-ringwrap' }, svg);
+    make('path', { class: 'dk-ring', d: rsector(G.r, G.R, G.gap / 2, 360 - G.gap / 2, G.corner), 'stroke-width': G.corner * 2 }, ringwrap);
+    for (var k = 1; k < N; k++) {
+      var a = G.gap / 2 + SEG * k, p0 = pt(G.r + 7, a), p1 = pt(G.R - 7, a);
+      make('line', { class: 'dk-divider', x1: f(p0[0]), y1: f(p0[1]), x2: f(p1[0]), y2: f(p1[1]) }, ringwrap);
+    }
+    var active = make('g', { class: 'dk-active' }, ringwrap);
+    var ad = rsector(G.r - 1, G.R + G.lift, G.gap / 2 + 0.6, G.gap / 2 + SEG - 0.6, 6);
+    make('path', { class: 'dk-active-fill', d: ad, 'stroke-width': 12 }, active);
+    make('path', { d: ad, fill: 'url(#' + id + 'h)', stroke: 'url(#' + id + 'h)', 'stroke-width': 12, 'stroke-linejoin': 'round', opacity: '.6' }, active);
+
+    var items = [], hits = make('g', {}, svg);
+    ITEMS.forEach(function (it, i) {
+      var c = pt(G.iconR, center(i));
+      var g = make('g', { class: 'dk-item', 'data-i': i }, svg);
+      g.style.transitionDelay = (i * 18) + 'ms';
+      g.innerHTML = '<svg x="' + f(c[0] - 9) + '" y="' + f(c[1] - 9) + '" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' + ICON[it.id] + '</svg>';
+      items.push(g);
+      var h = make('path', { class: 'dk-hit', d: sector(G.r, G.R + G.lift, G.gap / 2 + SEG * i, G.gap / 2 + SEG * (i + 1)) }, hits);
+      h.addEventListener('click', function (e) { e.stopPropagation(); if (moded) return; select(i); });
+    });
+    if (opts.tether) make('circle', { class: 'dk-tether', cx: 130, cy: 130 - G.R + 4, r: 2.5 }, svg);
+
+    make('circle', { class: 'dk-well', cx: 130, cy: 130, r: G.r - 6 }, svg);
+    var enter = make('g', { class: 'dk-knob-enter' }, svg);
+    var press = make('g', { class: 'dk-knob-press' }, enter);
+    make('circle', { class: 'dk-glow', cx: 130, cy: 130, r: G.knob }, press);
+    var rot = make('g', { class: 'dk-knob-rot' }, press);
+    make('circle', { class: 'dk-knurl', cx: 130, cy: 130, r: G.knob }, rot);
+    for (var t = 0; t < 90; t++) {
+      var q0 = pt(G.knob - 3.6, t * 4), q1 = pt(G.knob - 0.6, t * 4);
+      make('line', { class: 'dk-teeth', x1: f(q0[0]), y1: f(q0[1]), x2: f(q1[0]), y2: f(q1[1]) }, rot);
+    }
+    make('circle', { cx: 130, cy: 130, r: G.knob - 5, fill: 'url(#' + id + 'f)' }, rot);
+    make('circle', { class: 'dk-rim', cx: 130, cy: 130, r: G.knob - 11 }, rot);
+    make('path', { class: 'dk-rimlight', d: 'M' + pt(G.knob - 5.5, 280).map(f).join(' ') + 'A' + (G.knob - 5.5) + ' ' + (G.knob - 5.5) + ' 0 0 1 ' + pt(G.knob - 5.5, 345).map(f).join(' ') }, press);
+    [0, 180].forEach(function (a) {
+      var m0 = pt(G.knob - 15, a), m1 = pt(G.knob - 8, a);
+      make('line', { class: 'dk-mark', x1: f(m0[0]), y1: f(m0[1]), x2: f(m1[0]), y2: f(m1[1]) }, rot);
+    });
+    var label = make('g', { class: 'dk-knob-label' }, press);
+    host.appendChild(wrap);
+
+    function paintLabel() {
+      var it = ITEMS[index];
+      label.innerHTML = '<svg x="121" y="107" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' + ICON[it.id] + '</svg>' +
+        '<text class="dk-knob-text" x="130" y="141">' + it.short + '</text>';
+      wrap.setAttribute('aria-label', 'Dial, ' + it.label + ' selected');
+    }
+    function paint() {
+      active.style.transform = 'rotate(' + f(angle - center(0)) + 'deg)';
+      rot.style.transform = 'rotate(' + f(knobAngle) + 'deg)';
+      items.forEach(function (g, i) { g.classList.toggle('is-active', i === index); });
+    }
+    function velocity() {
+      var now = Date.now();
+      if (now - lastStep < 70) wrap.classList.add('is-fast');
+      lastStep = now; clearTimeout(fastTimer);
+      fastTimer = setTimeout(function () { wrap.classList.remove('is-fast'); }, 160);
+    }
+    function step(dir, quiet) {
+      if (moded) { knobAngle += dir * G.detent; velocity(); paint(); emit('turn', dir); return; }
+      var ni = (index + dir + N) % N, wrapped = (dir > 0 && ni === 0) || (dir < 0 && ni === N - 1);
+      angle += dir * (wrapped ? SEG + G.gap : SEG);
+      knobAngle = angle; index = ni;
+      if (quiet) return;
+      velocity(); paint(); paintLabel();
+      restart(items[index], 'is-tick'); restart(label, 'is-swap');
+      emit('change', ITEMS[index]);
+    }
+    function select(i) {
+      var fwd = (i - index + N) % N;
+      if (!fwd) return;
+      var dir = fwd <= N / 2 ? 1 : -1, n = dir > 0 ? fwd : N - fwd;
+      for (var s = 0; s < n; s++) step(dir, true);
+      paint(); paintLabel(); restart(items[index], 'is-tick'); restart(label, 'is-swap');
+      emit('change', ITEMS[index]);
+    }
+    function doPress() {
+      wrap.classList.add('is-pressed');
+      setTimeout(function () { wrap.classList.remove('is-pressed'); }, 110);
+      restart(wrap, 'is-glow');
+      emit('press', ITEMS[index]);
+    }
+    function emit(name, arg) { (ev[name] || []).forEach(function (fn) { fn(arg); }); }
+
+    press.addEventListener('click', function (e) { e.stopPropagation(); doPress(); });
+    paintLabel(); paint();
+
+    return {
+      el: wrap,
+      next: function () { step(1); }, prev: function () { step(-1); },
+      turn: function (d) { step(d); }, press: doPress, select: select,
+      item: function () { return ITEMS[index]; },
+      setModed: function (on) { moded = !!on; wrap.classList.toggle('is-moded', moded); if (!on) { knobAngle = angle; paint(); } },
+      summon: function () { wrap.classList.remove('is-hidden'); },
+      dismiss: function () { wrap.classList.add('is-hidden'); },
+      hidden: function () { return wrap.classList.contains('is-hidden'); },
+      on: function (name, fn) { (ev[name] = ev[name] || []).push(fn); return this; }
+    };
+  }
+
+  /* HUD pill: icon, label, then a meter (levels) or a value (steps and lists). */
+  function hud(host, opts) {
+    opts = opts || {};
+    var el = document.createElement('div');
+    el.className = 'dk-hud is-hidden';
+    el.setAttribute('role', 'status');
+    el.innerHTML = '<span class="dk-hud-icon"></span><span class="dk-hud-label"></span><span class="dk-hud-meter"><i></i></span><span class="dk-hud-value"></span>';
+    host.appendChild(el);
+    var timer = null, q = function (s) { return el.querySelector(s); };
+    return {
+      el: el,
+      show: function (item, r, sticky) {
+        q('.dk-hud-icon').innerHTML = icon(item.id, 16);
+        q('.dk-hud-label').textContent = item.label;
+        var m = q('.dk-hud-meter');
+        if (r && r.frac != null) { m.hidden = false; m.firstChild.style.width = Math.round(r.frac * 100) + '%'; } else m.hidden = true;
+        var v = q('.dk-hud-value'); v.textContent = r ? r.text : ''; restart(v, 'is-bump');
+        el.classList.remove('is-hidden');
+        clearTimeout(timer);
+        if (!sticky && !opts.sticky) timer = setTimeout(function () { el.classList.add('is-hidden'); }, 1200);
+      },
+      hide: function () { el.classList.add('is-hidden'); }
+    };
+  }
+
+  var APPS = ['Finder', 'Figma', 'Safari', 'Claude', 'Terminal', 'Notes', 'Mail', 'Music'];
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function cyc(v, a, b) { var n = b - a + 1; return ((v - a) % n + n) % n + a; }
+  /* Fake system state so previews can show what a turn would do. */
+  function sim() {
+    var v = { volume: 56, brightness: 70, apps: 1, mission: 1, desktops: 2, tabs: 3, scroll: 0, undo: 0, slides: 4 };
+    function read(id) {
+      switch (id) {
+        case 'volume': case 'brightness': return { text: String(v[id]), frac: v[id] / 100 };
+        case 'apps': return { text: APPS[v.apps] };
+        case 'mission': return { text: v.mission + ' / 6' };
+        case 'desktops': return { text: v.desktops + ' / 4' };
+        case 'tabs': return { text: v.tabs + ' / 8' };
+        case 'scroll': return { text: v.scroll === 0 ? '—' : (v.scroll > 0 ? '↓ ' : '↑ ') + Math.abs(v.scroll) * 3 + ' lines' };
+        case 'undo': return { text: v.undo < 0 ? 'Undo ×' + (-v.undo) : v.undo > 0 ? 'Redo ×' + v.undo : '—' };
+        case 'slides': return { text: v.slides + ' / 24' };
+      }
+    }
+    return {
+      read: read,
+      turn: function (id, d) {
+        if (id === 'volume' || id === 'brightness') v[id] = clamp(v[id] + d * 6, 0, 100);
+        else if (id === 'apps') v.apps = cyc(v.apps + d, 0, APPS.length - 1);
+        else if (id === 'mission') v.mission = cyc(v.mission + d, 1, 6);
+        else if (id === 'desktops') v.desktops = clamp(v.desktops + d, 1, 4);
+        else if (id === 'tabs') v.tabs = cyc(v.tabs + d, 1, 8);
+        else if (id === 'slides') v.slides = clamp(v.slides + d, 1, 24);
+        else v[id] += d;
+        return read(id);
+      }
+    };
+  }
+
+  /* Review controls: chips plus keys and the trackpad wheel standing in for the real dial. */
+  function controls(host, target, h) {
+    var row = document.createElement('div');
+    row.className = 'dk-controls';
+    [['Turn left', '←', function () { h.turn(-1); }], ['Press', 'space', function () { h.press(); }],
+     ['Turn right', '→', function () { h.turn(1); }], ['Double press', 'D', function () { h.double && h.double(); }]]
+      .forEach(function (c) {
+        var b = document.createElement('button');
+        b.className = 'dk-chip'; b.type = 'button';
+        b.innerHTML = c[0] + '<kbd>' + c[1] + '</kbd>';
+        b.addEventListener('click', c[2]);
+        row.appendChild(b);
+      });
+    host.appendChild(row);
+    target.tabIndex = target.tabIndex < 0 ? 0 : target.tabIndex;
+    target.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { h.turn(1); e.preventDefault(); }
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { h.turn(-1); e.preventDefault(); }
+      else if (e.key === ' ' || e.key === 'Enter') { h.press(); e.preventDefault(); }
+      else if (e.key === 'd' || e.key === 'D') { h.double && h.double(); }
+    });
+    var acc = 0;
+    target.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      acc += Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      while (Math.abs(acc) >= 36) { h.turn(acc > 0 ? 1 : -1); acc -= acc > 0 ? 36 : -36; }
+    }, { passive: false });
+    return row;
+  }
+
+  window.Dial = { ITEMS: ITEMS, APPS: APPS, ICON: ICON, geometry: G, segment: SEG, center: center, pt: pt,
+    sector: sector, rsector: rsector, icon: icon, mount: mount, hud: hud, sim: sim, controls: controls };
+})();
+</script></head><body><!-- @dsCard group="Modes" height=500 subtitle="Mission Control mode: windows spread out, turning hops between them, pressing brings one forward" -->
+<div class="dk-stage" id="stage" style="position:relative;height:500px;overflow:hidden;outline:none">
+  <style>
+    .scr{position:absolute;left:50%;top:16px;width:600px;height:340px;margin-left:-300px;border-radius:var(--radius-lg);background:var(--canvas-raised);border:1px solid var(--card-border);overflow:hidden}
+    .spaces{position:absolute;left:0;right:0;top:12px;display:flex;justify-content:center;gap:10px;transition:opacity 240ms var(--ease-out),transform 320ms var(--ease-spring)}
+    .scr:not(.is-spread) .spaces{opacity:0;transform:translateY(-14px)}
+    .sp{width:66px;height:40px;border-radius:var(--radius-sm);background:var(--card);border:1px solid var(--card-border);box-sizing:border-box}
+    .sp.is-cur{border:2px solid var(--card-border-active)}
+    .w{position:absolute;box-sizing:border-box;border-radius:var(--radius-md);background:var(--card);border:1px solid var(--card-border);box-shadow:var(--shadow-card);overflow:hidden;transform-origin:0 0;
+      transition:transform 380ms var(--ease-spring),box-shadow 160ms ease,border-color 160ms ease}
+    .w.is-sel{border-color:var(--card-border-active);box-shadow:0 0 0 2px var(--card-border-active),var(--shadow-card)}
+    .w .tb{height:16px;display:flex;align-items:center;gap:4px;padding:0 7px;border-bottom:1px solid var(--hairline)}
+    .w .tb i{width:5px;height:5px;border-radius:50%;background:var(--hairline)}
+    .w .ln{height:5px;border-radius:3px;background:var(--hairline);margin:9px 10px 0}
+    .ttl{position:absolute;z-index:30;transform:translateX(-50%);padding:3px 9px;border-radius:var(--radius-pill);background:var(--ring);color:var(--icon-active);font:600 11px/14px var(--font-sans);white-space:nowrap;opacity:0;transition:opacity 160ms ease,transform 220ms var(--ease-spring);pointer-events:none}
+    .ttl.is-on{opacity:1;transform:translateX(-50%) translateY(2px)}
+    #hudhost{position:absolute;left:50%;top:368px;transform:translateX(-50%);z-index:40}
+    .foot{position:absolute;left:0;right:0;bottom:14px;display:flex;flex-direction:column;gap:8px;align-items:center}
+  </style>
+  <div class="scr" id="scr">
+    <div class="spaces"><div class="sp is-cur"></div><div class="sp"></div><div class="sp"></div><div class="sp"></div></div>
+  </div>
+  <div id="hudhost"></div>
+  <div class="foot"><div class="dk-hintline" id="hint">Press to open Mission Control</div><div id="ctl"></div></div>
+</div>
+<script>
+(function () {
+  var stage = document.getElementById('stage'), scr = document.getElementById('scr'), hint = document.getElementById('hint');
+  var NAMES = ['Notes', 'Figma — Dial', 'Safari', 'Terminal', 'Mail', 'Music'];
+  var SPREAD = [[26,70,168,104],[216,64,168,112],[406,72,168,98],[30,200,160,94],[214,194,172,102],[410,202,162,90]];
+  var STACK = [[110,40,300,200],[170,62,300,200],[140,92,280,190],[206,30,280,200],[120,112,300,180],[190,100,290,196]];
+  var order = [0, 1, 2, 3, 4, 5], sel = 0, spread = false, wins = [], ttls = [];
+  var h = Dial.hud(document.getElementById('hudhost'), { sticky: true });
+  var item = Dial.ITEMS.filter(function (i) { return i.id === 'mission'; })[0];
+  NAMES.forEach(function (n, i) {
+    var r = SPREAD[i], w = document.createElement('div');
+    w.className = 'w';
+    w.style.cssText = 'left:' + r[0] + 'px;top:' + r[1] + 'px;width:' + r[2] + 'px;height:' + r[3] + 'px';
+    w.innerHTML = '<div class="tb"><i></i><i></i><i></i></div><div class="ln" style="width:55%"></div><div class="ln"></div><div class="ln" style="width:75%"></div><div class="ln" style="width:40%"></div>';
+    scr.appendChild(w); wins.push(w);
+    var t = document.createElement('div'); t.className = 'ttl'; t.textContent = n;
+    t.style.left = (r[0] + r[2] / 2) + 'px'; t.style.top = (r[1] + r[3] + 6) + 'px';
+    scr.appendChild(t); ttls.push(t);
+  });
+  function layout() {
+    scr.classList.toggle('is-spread', spread);
+    wins.forEach(function (w, i) {
+      var a = SPREAD[i], b = STACK[i], s = spread && i === sel ? 1.03 : 1;
+      w.style.transform = spread
+        ? 'translate(' + (-(s - 1) * a[2] / 2) + 'px,' + (-(s - 1) * a[3] / 2) + 'px) scale(' + s + ')'
+        : 'translate(' + (b[0] - a[0]) + 'px,' + (b[1] - a[1]) + 'px) scale(' + (b[2] / a[2]) + ',' + (b[3] / a[3]) + ')';
+      w.style.zIndex = spread ? (i === sel ? 20 : 10) : 10 + order.indexOf(i);
+      w.style.transitionDelay = spread ? (i * 22) + 'ms' : '0ms';
+      w.classList.toggle('is-sel', spread && i === sel);
+      ttls[i].classList.toggle('is-on', spread && i === sel);
+    });
+  }
+  function readout() { h.show(item, { text: NAMES[sel] + '  ' + (sel + 1) + ' / 6' }, true); }
+  function openMC() { spread = true; sel = order[order.length - 1]; layout(); readout(); hint.textContent = 'Turn to move between windows · Press to bring one forward · Double press to cancel'; }
+  function closeMC(pick) {
+    if (pick) { order.splice(order.indexOf(sel), 1); order.push(sel); }
+    spread = false; layout(); h.hide();
+    hint.textContent = pick ? NAMES[sel] + ' is in front · Press to open Mission Control again' : 'Press to open Mission Control';
+  }
+  Dial.controls(document.getElementById('ctl'), stage, {
+    turn: function (d) { if (!spread) return; sel = (sel + d + 6) % 6; layout(); readout(); },
+    press: function () { spread ? closeMC(true) : openMC(); },
+    double: function () { spread ? closeMC(false) : openMC(); }
+  });
+  layout();
+})();
+</script>
+</body></html>
