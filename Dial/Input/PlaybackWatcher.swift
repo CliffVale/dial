@@ -16,7 +16,15 @@ final class PlaybackWatcher {
     var ignoredPIDs: () -> Set<pid_t> = { [getpid()] }
 
     private let system = AudioObjectID(kAudioObjectSystemObject)
-    private var watched: [AudioObjectID: (pid: pid_t, running: Bool, listener: AudioObjectPropertyListenerBlock)] = [:]
+    private var watched: [AudioObjectID: (pid: pid_t, running: Bool, isPlayer: Bool, listener: AudioObjectPropertyListenerBlock)] = [:]
+
+    /// Apple processes that play media. Every other com.apple process (system
+    /// sounds, Siri, speech) and anything without a bundle id is ignored, so an
+    /// alert sound doesn't count as an app starting to play.
+    private static let applePlayers: Set<String> = [
+        "com.apple.Music", "com.apple.TV", "com.apple.podcasts", "com.apple.QuickTimePlayerX",
+        "com.apple.Safari", "com.apple.WebKit.GPU", "com.apple.WebKit.WebContent",
+    ]
     private var listListener: AudioObjectPropertyListenerBlock?
 
     func start() {
@@ -46,10 +54,11 @@ final class PlaybackWatcher {
             guard AudioObjectAddPropertyListenerBlock(object, &address, .main, listener) == noErr else { continue }
             let pid = pid(of: object)
             let running = isRunningOutput(object)
-            watched[object] = (pid, running, listener)
+            let isPlayer = Self.isPlayer(bundleID(of: object))
+            watched[object] = (pid, running, isPlayer, listener)
             // A process new to CoreAudio is often already playing by the time
             // it appears, so it never reports a change from stopped.
-            if running, !isInitial, !ignoredPIDs().contains(pid) {
+            if running, isPlayer, !isInitial, !ignoredPIDs().contains(pid) {
                 onOtherAppStartedPlaying?(pid)
             }
         }
@@ -62,7 +71,7 @@ final class PlaybackWatcher {
         let started = running && !entry.running
         entry.running = running
         watched[object] = entry
-        guard started, !ignoredPIDs().contains(entry.pid) else { return }
+        guard started, entry.isPlayer, !ignoredPIDs().contains(entry.pid) else { return }
         onOtherAppStartedPlaying?(entry.pid)
     }
 
@@ -85,6 +94,20 @@ final class PlaybackWatcher {
         var size = UInt32(MemoryLayout<pid_t>.size)
         AudioObjectGetPropertyData(object, &address, 0, nil, &size, &pid)
         return pid
+    }
+
+    private static func isPlayer(_ bundleID: String?) -> Bool {
+        guard let bundleID, !bundleID.isEmpty else { return false }
+        return !bundleID.hasPrefix("com.apple.") || applePlayers.contains(bundleID)
+    }
+
+    @available(macOS 14.2, *)
+    private func bundleID(of object: AudioObjectID) -> String? {
+        var address = Self.address(kAudioProcessPropertyBundleID)
+        var value: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        guard AudioObjectGetPropertyData(object, &address, 0, nil, &size, &value) == noErr, let value else { return nil }
+        return value.takeRetainedValue() as String
     }
 
     @available(macOS 14.2, *)

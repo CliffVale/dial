@@ -20,6 +20,19 @@ enum DialSnapshots {
                 render(DialPreviewCanvas(selection: mode), scheme: scheme, to: file)
             }
         }
+        // Framed like hud-volume-*.png: the pill centred at 360, 106 on a 720 × 220pt canvas.
+        let volume = HUDContent(mode: .volume, reading: HUDReading(level: 0.68, text: "68"), afterChoose: false)
+        let tabs = HUDContent(mode: .tabs, reading: HUDReading(level: nil, text: "Next ×2"), afterChoose: false)
+        for (name, content) in [("volume", volume), ("tabs", tabs)] {
+            for scheme in [ColorScheme.dark, .light] {
+                let file = folder.appendingPathComponent("hud-\(name)-\(scheme == .dark ? "dark" : "light").png")
+                let view = HUDPreview(content: content).presentationView
+                    .position(x: 360, y: 106)
+                    .frame(width: 720, height: 220)
+                    .background(DialColor.canvas)
+                render(view, scheme: scheme, to: file)
+            }
+        }
         return true
     }
 

@@ -36,6 +36,9 @@ final class VolumeEncoder: InputSource {
     }
 
     private(set) var deviceLabel: String?
+
+    /// The buds' volume right now, or nil when they aren't the output.
+    var currentVolume: Float? { readVolume() }
     private(set) var parkValue: Float32?
 
     private let system = AudioObjectID(kAudioObjectSystemObject)

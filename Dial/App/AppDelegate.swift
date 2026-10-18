@@ -8,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: StatusItemController!
     private var debugWindow: DebugLogWindowController!
     private var dialPanel: DialPanelController!
+    private var hudPanel: HUDPanelController!
+    private let appSwitcher = AppSwitcher()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if DialSnapshots.renderIfRequested() {
@@ -23,10 +25,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let passPress: () -> Void = { [weak self] in self?.remote.passPlayPauseToMediaApp() }
         model.passPressToMediaApp = passPress
-        model.register(VolumeMode(passPressToMediaApp: passPress))
-        for id in ModeID.allCases where id != .volume {
-            model.register(PlaceholderMode(id))
-        }
+        appSwitcher.start()
+        let modes: [Mode] = [
+            VolumeMode(readVolume: { [weak self] in self?.encoder.currentVolume }, passPressToMediaApp: passPress),
+            BrightnessMode(),
+            AppsMode(switcher: appSwitcher),
+            MissionControlMode(),
+            DesktopsMode(),
+            TabsMode(),
+            ScrollMode(),
+            UndoRedoMode(),
+            SlidesMode(),
+        ]
+        modes.forEach(model.register)
         model.onParkingChange = { [weak self] parking in self?.encoder.parking = parking }
 
         for source in [encoder, remote, simulated] as [InputSource] {
@@ -40,6 +51,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dialPanel = DialPanelController(model: model)
         statusItem = StatusItemController(model: model, encoder: encoder, presentation: dialPanel.presentation)
         dialPanel.anchor = { [weak self] in self?.statusItem.anchor }
+        hudPanel = HUDPanelController(model: model)
+        hudPanel.anchor = { [weak self] in self?.statusItem.anchor }
         statusItem.onShowDebugLog = { [weak self] in self?.debugWindow.show() }
         statusItem.onReclaimMediaButtons = { [weak self] in self?.remote.reclaim() }
         simulated.onReclaim = { [weak self] in self?.remote.reclaim() }

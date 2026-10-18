@@ -40,6 +40,11 @@ final class DialModel {
     private(set) var detentCount = 0
     private(set) var pressCount = 0
 
+    /// What the HUD pill shows; nil hides it. `hudRevision` bumps on every
+    /// update so the HUD restarts its linger and nudges the value.
+    private(set) var hud: HUDContent?
+    private(set) var hudRevision = 0
+
     /// When the latest detent arrived and the gap before it, for fast spin.
     private(set) var lastDetentAt: Date?
     private(set) var lastDetentInterval: TimeInterval?
@@ -79,6 +84,10 @@ final class DialModel {
 
     func register(_ mode: Mode) {
         handlers[mode.id] = mode
+        mode.onReadingChange = { [weak self, weak mode] in
+            guard let self, let mode, let hud = self.hud, hud.mode == mode.id else { return }
+            self.hud = HUDContent(mode: mode.id, reading: mode.reading, afterChoose: false)
+        }
     }
 
     // MARK: - Derived state
@@ -123,10 +132,11 @@ final class DialModel {
         switch (phase, event) {
         case (.rest, .turn):
             // The encoder isn't parking, so the volume already moved.
-            break
+            showHUD(.volume)
         case (.rest, .press):
             log("state", "press at rest → music app")
             passPressToMediaApp?()
+            showHUD(.volume, text: "Play / Pause")
         case (.rest, .doublePress), (.inMode, .doublePress):
             beginPicking()
 
@@ -144,10 +154,32 @@ final class DialModel {
         case (.inMode(let mode), .turn(let steps)):
             recordDetent()
             knobAngle += Double(steps) * DialGeometry.knobDetentDegrees
-            handlers[mode]?.turn(steps)
+            guard let handler = handlers[mode], hasPermission(for: handler) else { return }
+            handler.turn(steps)
+            showHUD(mode)
         case (.inMode(let mode), .press):
-            handlers[mode]?.press()
+            guard let handler = handlers[mode], hasPermission(for: handler) else { return }
+            let action = handler.press()
+            log("mode", "\(mode.label): press → \(action)")
+            showHUD(mode, text: action)
         }
+    }
+
+    // MARK: - HUD
+
+    private func showHUD(_ mode: ModeID, text: String? = nil, afterChoose: Bool = false) {
+        var reading = handlers[mode]?.reading ?? .empty
+        if let text { reading.text = text }
+        hud = HUDContent(mode: mode, reading: reading, afterChoose: afterChoose)
+        hudRevision += 1
+    }
+
+    /// Modes that post events need Accessibility; without it, ask once and say so in the HUD.
+    private func hasPermission(for handler: Mode) -> Bool {
+        guard handler.needsAccessibility, !Permissions.isAccessibilityTrusted else { return true }
+        Permissions.requestAccessibility(reason: "use \(handler.label)")
+        showHUD(handler.id, text: "Needs Accessibility")
+        return false
     }
 
     /// Mouse: jump straight to a segment while picking.
@@ -204,12 +236,22 @@ final class DialModel {
         // highlight the short way round.
         knobAngle = highlightAngle + 360 * ((knobAngle - highlightAngle) / 360).rounded()
         setPhase(.picking)
+        hud = nil
         restartIdleTimer()
     }
 
     private func choose(_ mode: ModeID) {
         idleTimer?.invalidate()
+        let previous: ModeID? = {
+            if case .inMode(let old) = phaseBeforePicking { return old }
+            return nil
+        }()
         setPhase(.inMode(mode))
+        if previous != mode {
+            if let previous { handlers[previous]?.deactivate() }
+            handlers[mode]?.activate()
+        }
+        showHUD(mode, afterChoose: true)
     }
 
     private func endPicking(reason: String) {
@@ -252,4 +294,12 @@ extension DialModel {
         }
         return model
     }
+}
+
+/// The HUD pill's content: which mode, and its meter and value.
+struct HUDContent: Equatable {
+    let mode: ModeID
+    let reading: HUDReading
+    /// Shown after the dial folds up, rather than at once.
+    let afterChoose: Bool
 }

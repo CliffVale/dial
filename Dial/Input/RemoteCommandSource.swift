@@ -26,6 +26,8 @@ final class RemoteCommandSource: InputSource {
     /// Playback that starts this soon after a pass-through is the music app
     /// resuming because of it; the new helper already won Now Playing back.
     private static let passthroughQuietPeriod: TimeInterval = 2.5
+    /// Starting a helper can wake other audio; ignore playback this soon after.
+    private static let launchQuietPeriod: TimeInterval = 1.5
 
     private static let helperURL = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/dial-remote")
 
@@ -33,6 +35,7 @@ final class RemoteCommandSource: InputSource {
     private var buffer = Data()
     private var isPassingThrough = false
     private var lastPassthrough: Date?
+    private var lastLaunch: Date?
     private var isStopping = false
     private var pendingReclaim: DispatchWorkItem?
     private let playbackWatcher = PlaybackWatcher()
@@ -68,6 +71,9 @@ final class RemoteCommandSource: InputSource {
         let name = NSRunningApplication(processIdentifier: pid)?.localizedName ?? "pid \(pid)"
         if isPassingThrough || lastPassthrough.map({ Date().timeIntervalSince($0) < Self.passthroughQuietPeriod }) == true {
             log("remote", "\(name) started playing after a pass-through; no reclaim needed")
+            return
+        }
+        if let lastLaunch, Date().timeIntervalSince(lastLaunch) < Self.launchQuietPeriod {
             return
         }
         log("remote", "\(name) started playing; reclaiming the buttons in \(Self.reclaimDelay)s")
@@ -127,6 +133,7 @@ final class RemoteCommandSource: InputSource {
         do {
             try process.run()
             helper = process
+            lastLaunch = Date()
             log("remote", "\(reason): started Now Playing helper (pid \(process.processIdentifier))")
         } catch {
             log("remote", "\(reason): could not start the Now Playing helper: \(error.localizedDescription)")

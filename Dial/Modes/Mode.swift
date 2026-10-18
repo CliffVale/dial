@@ -42,20 +42,6 @@ enum ModeID: String, CaseIterable, Codable {
         }
     }
 
-    var symbol: String {
-        switch self {
-        case .volume: return "speaker.wave.2"
-        case .brightness: return "sun.max"
-        case .apps: return "square.grid.3x3"
-        case .missionControl: return "rectangle.3.group"
-        case .desktops: return "rectangle.on.rectangle"
-        case .tabs: return "macwindow"
-        case .scroll: return "computermouse"
-        case .undoRedo: return "arrow.uturn.backward"
-        case .slides: return "play.rectangle"
-        }
-    }
-
     var kind: ModeKind {
         switch self {
         case .volume, .brightness: return .level
@@ -65,31 +51,57 @@ enum ModeID: String, CaseIterable, Codable {
     }
 }
 
+/// What the HUD shows for a mode: a level for the meter (0...1) and/or a value.
+struct HUDReading: Equatable {
+    var level: Double?
+    var text: String
+
+    static let empty = HUDReading(level: nil, text: "")
+}
+
 protocol Mode: AnyObject {
     var id: ModeID { get }
+    /// Whether turning or pressing posts events, which needs Accessibility.
+    var needsAccessibility: Bool { get }
+    /// The HUD's meter and value right now.
+    var reading: HUDReading { get }
+    /// Set by the model; call when `reading` changes on its own (a value read back later).
+    var onReadingChange: (() -> Void)? { get set }
+
     func turn(_ steps: Int)
-    func press()
+    /// Performs the press action and returns its name for the HUD ("Mute", "New tab").
+    func press() -> String
+    /// Called when the mode is chosen and when it's left.
+    func activate()
+    func deactivate()
 }
 
 extension Mode {
     var label: String { id.label }
     var shortLabel: String { id.shortLabel }
     var kind: ModeKind { id.kind }
+    var needsAccessibility: Bool { true }
+    func activate() {}
+    func deactivate() {}
 }
 
-/// Stands in for modes that arrive in Phase 3: logs what it would do.
-final class PlaceholderMode: Mode {
-    let id: ModeID
+/// Net detents in one direction while the HUD is up, for values like
+/// "Undo ×2". Starts again once the HUD's linger has passed.
+struct StepTally {
+    private(set) var net = 0
+    private var last = Date.distantPast
 
-    init(_ id: ModeID) {
-        self.id = id
+    mutating func add(_ steps: Int) {
+        let now = Date()
+        if now.timeIntervalSince(last) > DialMotion.hudLinger { net = 0 }
+        net += steps
+        last = now
     }
 
-    func turn(_ steps: Int) {
-        log("mode", "\(id.label): turn \(steps > 0 ? "+" : "")\(steps) (action arrives in Phase 3)")
-    }
-
-    func press() {
-        log("mode", "\(id.label): press (action arrives in Phase 3)")
+    /// "Next ×2", "Previous ×1", or "—" when the turns cancel out.
+    func text(forward: String, backward: String) -> String {
+        if net > 0 { return "\(forward) ×\(net)" }
+        if net < 0 { return "\(backward) ×\(-net)" }
+        return "—"
     }
 }

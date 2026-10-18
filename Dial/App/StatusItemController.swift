@@ -24,6 +24,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     private let stateItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let budsItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let accessibilityItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
 
     init(model: DialModel, encoder: VolumeEncoder, presentation: DialPresentation) {
         self.model = model
@@ -102,6 +103,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         budsItem.isEnabled = false
         menu.addItem(stateItem)
         menu.addItem(budsItem)
+        accessibilityItem.target = self
+        accessibilityItem.action = #selector(openAccessibilitySettings)
+        menu.addItem(accessibilityItem)
         menu.addItem(.separator())
 
         let debug = NSMenuItem(title: "Show Debug Log", action: #selector(showDebugLog), keyEquivalent: "l")
@@ -127,6 +131,17 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         } else {
             budsItem.title = "Buds: not the sound output, turns are off"
         }
+        if Permissions.isAccessibilityTrusted {
+            accessibilityItem.title = "Accessibility: on"
+            accessibilityItem.isEnabled = false
+        } else {
+            accessibilityItem.title = "Accessibility: off — Open Settings…"
+            accessibilityItem.isEnabled = true
+        }
+    }
+
+    @objc private func openAccessibilitySettings() {
+        Permissions.openAccessibilitySettings()
     }
 
     @objc private func showDebugLog() {
