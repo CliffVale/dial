@@ -7,8 +7,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var simulated: SimulatedInput!
     private var statusItem: StatusItemController!
     private var debugWindow: DebugLogWindowController!
+    private var dialPanel: DialPanelController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if DialSnapshots.renderIfRequested() {
+            NSApp.terminate(nil)
+            return
+        }
         log("app", "Dial \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] ?? "?") started; log file \(DebugLog.shared.fileURL.path)")
 
         model = DialModel(settings: .load())
@@ -32,13 +37,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         debugWindow = DebugLogWindowController(model: model, encoder: encoder)
-        statusItem = StatusItemController(model: model, encoder: encoder)
+        dialPanel = DialPanelController(model: model)
+        statusItem = StatusItemController(model: model, encoder: encoder, presentation: dialPanel.presentation)
+        dialPanel.anchor = { [weak self] in self?.statusItem.anchor }
         statusItem.onShowDebugLog = { [weak self] in self?.debugWindow.show() }
         statusItem.onReclaimMediaButtons = { [weak self] in self?.remote.reclaim() }
         simulated.onReclaim = { [weak self] in self?.remote.reclaim() }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        guard model != nil else { return }
         // Give the listening volume back if we were holding it.
         encoder.stop()
         remote.stop()

@@ -49,7 +49,7 @@ struct DebugLogView: View {
     private var stateHeader: some View {
         Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 4) {
             row("State", model.phaseDescription)
-            row("Selection", "\(model.selectedMode.label)  ·  step \(model.selectionStep)  ·  \(Int(model.selectionAngle))°")
+            row("Selection", "\(model.selectedMode.label)  ·  highlight \(Int(model.highlightAngle))°  ·  knob \(Int(model.knobAngle))°")
             row("Last detent gap", model.lastDetentInterval.map { String(format: "%.0f ms%@", $0 * 1000, model.isFastSpin ? "  (fast spin)" : "") } ?? "–")
             row("Volume", model.shouldPark ? "parked" : "pass-through")
         }

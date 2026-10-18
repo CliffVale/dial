@@ -20,19 +20,45 @@ final class DialModel {
 
     private(set) var phase: Phase = .rest
 
-    /// The ring's modes in order.
+    /// Every mode in ring order; segment i of the ring is `ringOrder[i]`.
+    private(set) var ringOrder: [ModeID]
+    /// The modes the selection moves through, in ring order.
     private(set) var modes: [ModeID]
 
-    /// Accumulated detents while picking. Never wrapped, so the highlight and
-    /// knob angles keep accumulating (DESIGN.md, "Angles must accumulate").
-    private(set) var selectionStep = 0
+    private(set) var selectedMode: ModeID
+
+    /// The highlight's angle in degrees, clockwise from 12 o'clock. A running
+    /// total, never wrapped: one detent adds a segment, and a step across the
+    /// gap adds a segment plus the gap (DESIGN.md, "Angles must accumulate").
+    private(set) var highlightAngle: Double
+    /// Where the knob's 0° pointer mark points. Follows the highlight while
+    /// picking; turns `knobDetentDegrees` per detent inside a mode.
+    private(set) var knobAngle: Double
+
+    /// Bumped on every selection change and every press while picking, so
+    /// views can run one-shot animations (icon tick, label swap, press pulse).
+    private(set) var detentCount = 0
+    private(set) var pressCount = 0
 
     /// When the latest detent arrived and the gap before it, for fast spin.
     private(set) var lastDetentAt: Date?
     private(set) var lastDetentInterval: TimeInterval?
 
+    /// The mode in effect, shown in the menu bar: the active one, Volume at
+    /// rest (where the dial is a volume knob), and while picking, whichever
+    /// of those the pick started from.
+    var currentMode: ModeID {
+        switch phase {
+        case .inMode(let mode): return mode
+        case .rest: return .volume
+        case .picking:
+            if case .inMode(let mode) = phaseBeforePicking { return mode }
+            return .volume
+        }
+    }
+
     /// Where a cancelled pick returns to.
-    @ObservationIgnored private var phaseBeforePicking: Phase = .rest
+    private var phaseBeforePicking: Phase = .rest
     @ObservationIgnored private var handlers: [ModeID: Mode] = [:]
     @ObservationIgnored private var idleTimer: Timer?
 
@@ -42,7 +68,13 @@ final class DialModel {
     @ObservationIgnored var passPressToMediaApp: (() -> Void)?
 
     init(settings: DialSettings) {
-        modes = settings.enabledModes
+        let enabled = settings.enabledModes
+        ringOrder = settings.order
+        modes = enabled
+        selectedMode = enabled[0]
+        let start = DialGeometry.centreAngle(settings.order.firstIndex(of: enabled[0]) ?? 0)
+        highlightAngle = start
+        knobAngle = start
     }
 
     func register(_ mode: Mode) {
@@ -51,19 +83,12 @@ final class DialModel {
 
     // MARK: - Derived state
 
-    var selectedMode: ModeID {
-        modes[((selectionStep % modes.count) + modes.count) % modes.count]
-    }
-
-    /// Accumulated highlight angle in degrees, clockwise from the first segment.
-    var selectionAngle: Double {
-        Double(selectionStep) * 360 / Double(modes.count)
-    }
-
     var activeMode: ModeID? {
         if case .inMode(let mode) = phase { return mode }
         return nil
     }
+
+    var isPicking: Bool { phase == .picking }
 
     var isFastSpin: Bool {
         guard let interval = lastDetentInterval else { return false }
@@ -87,6 +112,10 @@ final class DialModel {
         }
     }
 
+    func segmentIndex(of mode: ModeID) -> Int {
+        ringOrder.firstIndex(of: mode) ?? 0
+    }
+
     // MARK: - Events
 
     func handle(_ event: DialEvent, from source: String) {
@@ -102,36 +131,78 @@ final class DialModel {
             beginPicking()
 
         case (.picking, .turn(let steps)):
-            recordDetents(steps)
-            selectionStep += steps
-            log("state", "selection → \(selectedMode.label) (step \(selectionStep), angle \(Int(selectionAngle))°)")
+            recordDetent()
+            moveSelection(by: steps)
+            log("state", "selection → \(selectedMode.label) (highlight \(Int(highlightAngle))°)")
             restartIdleTimer()
         case (.picking, .press):
+            pressCount += 1
             choose(selectedMode)
         case (.picking, .doublePress):
             endPicking(reason: "double press")
 
         case (.inMode(let mode), .turn(let steps)):
-            recordDetents(steps)
+            recordDetent()
+            knobAngle += Double(steps) * DialGeometry.knobDetentDegrees
             handlers[mode]?.turn(steps)
         case (.inMode(let mode), .press):
             handlers[mode]?.press()
         }
     }
 
+    /// Mouse: jump straight to a segment while picking.
+    func select(_ mode: ModeID) {
+        guard phase == .picking, mode != selectedMode, let target = modes.firstIndex(of: mode) else { return }
+        moveSelection(toIndex: target)
+        log("state", "selection → \(selectedMode.label) (clicked)")
+        restartIdleTimer()
+    }
+
+    // MARK: - Selection
+
+    private func moveSelection(by steps: Int) {
+        let direction = steps > 0 ? 1 : -1
+        for _ in 0..<abs(steps) {
+            let index = modes.firstIndex(of: selectedMode) ?? 0
+            step(to: modes[(index + direction + modes.count) % modes.count], direction: direction)
+        }
+        knobAngle = highlightAngle
+        detentCount += 1
+    }
+
+    /// Moves the shorter way round, one step at a time, so the angle stays continuous.
+    fileprivate func moveSelection(toIndex target: Int) {
+        let current = modes.firstIndex(of: selectedMode) ?? 0
+        let forward = (target - current + modes.count) % modes.count
+        guard forward != 0 else { return }
+        if forward <= modes.count / 2 {
+            moveSelection(by: forward)
+        } else {
+            moveSelection(by: forward - modes.count)
+        }
+    }
+
+    private func step(to next: ModeID, direction: Int) {
+        let from = segmentIndex(of: selectedMode)
+        let to = segmentIndex(of: next)
+        let count = ringOrder.count
+        let segments = direction > 0 ? (to - from + count) % count : (from - to + count) % count
+        let crossesGap = direction > 0 ? to <= from : to >= from
+        let degrees = Double(segments) * DialGeometry.segmentDegrees + (crossesGap ? DialGeometry.ringGapDegrees : 0)
+        highlightAngle += Double(direction) * degrees
+        selectedMode = next
+    }
+
     // MARK: - Transitions
 
     private func beginPicking() {
         phaseBeforePicking = phase
-        // Start on the active mode by moving the shortest way from where the
-        // selection already is, so the angle stays continuous.
-        if let mode = activeMode, let target = modes.firstIndex(of: mode) {
-            let current = ((selectionStep % modes.count) + modes.count) % modes.count
-            var offset = target - current
-            if offset > modes.count / 2 { offset -= modes.count }
-            if offset < -modes.count / 2 { offset += modes.count }
-            selectionStep += offset
+        if let target = modes.firstIndex(of: activeMode ?? .volume) {
+            moveSelection(toIndex: target)
         }
+        // The knob may have turned inside a mode; bring it back to the
+        // highlight the short way round.
+        knobAngle = highlightAngle + 360 * ((knobAngle - highlightAngle) / 360).rounded()
         setPhase(.picking)
         restartIdleTimer()
     }
@@ -164,9 +235,21 @@ final class DialModel {
         }
     }
 
-    private func recordDetents(_ steps: Int) {
+    private func recordDetent() {
         let now = Date()
         lastDetentInterval = lastDetentAt.map { now.timeIntervalSince($0) }
         lastDetentAt = now
+    }
+}
+
+extension DialModel {
+    /// A model already picking, with `mode` selected, for previews and snapshots.
+    static func preview(selecting mode: ModeID) -> DialModel {
+        let model = DialModel(settings: DialSettings(order: ModeID.allCases, disabled: []))
+        model.phase = .picking
+        if let target = model.modes.firstIndex(of: mode) {
+            model.moveSelection(toIndex: target)
+        }
+        return model
     }
 }

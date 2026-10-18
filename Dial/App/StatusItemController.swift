@@ -1,13 +1,23 @@
 import AppKit
 import Observation
+import SwiftUI
 
-/// The menu bar item. In Phase 1 it shows the dial symbol and, when a mode is
-/// active, that mode's short label; the designed label arrives in Phase 3.
+/// The menu bar item: the ring glyph and the current mode's name, with the
+/// `cardActive` highlight while the dial is open (DESIGN.md, "The menu bar
+/// item and panels"). Click opens or closes the dial; right-click or
+/// control-click shows the menu.
 @MainActor
 final class StatusItemController: NSObject, NSMenuDelegate {
+    /// Horizontal padding inside the highlight, and the glyph's size.
+    private static let padding: CGFloat = 8
+    private static let glyphSize: CGFloat = 15
+
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let model: DialModel
     private let encoder: VolumeEncoder
+    private let presentation: DialPresentation
+    private var label: NSHostingView<StatusItemLabel>?
+    private let menu = NSMenu()
 
     var onShowDebugLog: (() -> Void)?
     var onReclaimMediaButtons: (() -> Void)?
@@ -15,19 +25,78 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let stateItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let budsItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
 
-    init(model: DialModel, encoder: VolumeEncoder) {
+    init(model: DialModel, encoder: VolumeEncoder, presentation: DialPresentation) {
         self.model = model
         self.encoder = encoder
+        self.presentation = presentation
         super.init()
-
-        item.button?.image = NSImage(systemSymbolName: "dial.medium", accessibilityDescription: "Dial")
-        item.button?.imagePosition = .imageLeading
+        buildButton()
         buildMenu()
-        trackModel()
+        trackLabelWidth()
     }
 
+    /// Where the dial should hang from.
+    var anchor: DialAnchor? {
+        guard let button = item.button, let window = button.window, let screen = window.screen else { return nil }
+        let frame = window.convertToScreen(button.convert(button.bounds, to: nil))
+        let glyphX: CGFloat
+        if let label {
+            glyphX = frame.minX + label.frame.minX + Self.padding + Self.glyphSize / 2
+        } else {
+            glyphX = frame.midX
+        }
+        return DialAnchor(glyphCentreX: glyphX, menuBarBottom: window.frame.minY, screen: screen)
+    }
+
+    private func buildButton() {
+        guard let button = item.button else { return }
+        let hosting = PassThroughHostingView(rootView: StatusItemLabel(model: model, presentation: presentation))
+        hosting.translatesAutoresizingMaskIntoConstraints = false
+        button.addSubview(hosting)
+        NSLayoutConstraint.activate([
+            hosting.centerYAnchor.constraint(equalTo: button.centerYAnchor),
+            hosting.leadingAnchor.constraint(equalTo: button.leadingAnchor),
+        ])
+        label = hosting
+        button.setAccessibilityLabel("Dial")
+        button.target = self
+        button.action = #selector(clicked)
+        button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+    }
+
+    /// The item's width follows the label.
+    private func trackLabelWidth() {
+        withObservationTracking {
+            _ = model.currentMode
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                self?.updateLength()
+                self?.trackLabelWidth()
+            }
+        }
+        updateLength()
+    }
+
+    private func updateLength() {
+        guard let label else { return }
+        label.invalidateIntrinsicContentSize()
+        item.length = label.fittingSize.width
+    }
+
+    @objc private func clicked() {
+        let event = NSApp.currentEvent
+        if event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true {
+            item.menu = menu
+            item.button?.performClick(nil)
+            item.menu = nil
+        } else {
+            model.handle(.doublePress, from: "click")
+        }
+    }
+
+    // MARK: - Menu
+
     private func buildMenu() {
-        let menu = NSMenu()
         menu.delegate = self
         stateItem.isEnabled = false
         budsItem.isEnabled = false
@@ -49,7 +118,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(hotkeys)
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit Dial", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
-        item.menu = menu
     }
 
     func menuWillOpen(_ menu: NSMenu) {
@@ -61,31 +129,52 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         }
     }
 
-    /// Re-arms after every change, the AppKit way to follow an @Observable model.
-    private func trackModel() {
-        withObservationTracking {
-            updateButton()
-        } onChange: { [weak self] in
-            Task { @MainActor in self?.trackModel() }
-        }
-    }
-
-    private func updateButton() {
-        switch model.phase {
-        case .rest:
-            item.button?.title = ""
-        case .picking:
-            item.button?.title = " " + model.selectedMode.shortLabel + "…"
-        case .inMode(let mode):
-            item.button?.title = " " + mode.shortLabel
-        }
-    }
-
     @objc private func showDebugLog() {
         onShowDebugLog?()
     }
 
     @objc private func reclaimMediaButtons() {
         onReclaimMediaButtons?()
+    }
+}
+
+/// Draws inside the status button but leaves its clicks to the button.
+private final class PassThroughHostingView<Content: View>: NSHostingView<Content> {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+/// Ring glyph and mode name in `hudLabel`, on a `cardActive` highlight while
+/// the dial is open.
+struct StatusItemLabel: View {
+    let model: DialModel
+    let presentation: DialPresentation
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        HStack(spacing: 6) {
+            DialIconView(icon: .ring, size: 15)
+            ZStack {
+                Text(model.currentMode.label)
+                    .font(DialFont.hudLabel)
+                    .fixedSize()
+                    .id(model.currentMode)
+                    .transition(reduceMotion ? .identity : .asymmetric(
+                        insertion: .opacity.combined(with: .offset(y: 4)),
+                        removal: .identity
+                    ))
+            }
+            .animation(reduceMotion ? nil : DialMotion.labelSwap, value: model.currentMode)
+        }
+        .foregroundStyle(.primary)
+        .padding(.horizontal, 8)
+        .frame(height: 22)
+        .background(
+            RoundedRectangle(cornerRadius: DialRadius.sm)
+                .fill(DialColor.cardActive)
+                .opacity(presentation.isShown ? 1 : 0)
+                // The 160ms highlight from motion.md; no token covers it.
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.16), value: presentation.isShown)
+        )
     }
 }
