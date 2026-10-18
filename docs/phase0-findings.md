@@ -74,3 +74,13 @@ What this means:
 .build/release/dial-probe --now-playing | tee -i ~/Desktop/probe-F.log
 ```
 Start the probe with nothing playing. Then press play in Spotify with the mouse, wait 5 s, and press and double press on the dial. If no `[command]` lines appear, Spotify has taken Now Playing, and risk 1 needs a fix in Phase 1.
+
+## Phase 1 follow-up: who gets the buttons (2026-10-18)
+
+Found while building Phase 1 and tested with a second probe standing in for a music app:
+
+- **A zero-length live-stream Now Playing item is ignored.** Dial must publish a plain track (duration 3600 s, elapsed 0, rate 1), like the probe, or the buttons never arrive.
+- **Risk 1 is real.** An app that starts playing after Dial (YouTube in Chrome, in testing) takes the buttons. Restarting the same audio engine doesn't win them back; a new process playing silence does.
+- **A stopped app keeps the buttons.** Even with its engine stopped, its Now Playing info cleared and its commands disabled for 1 s, macOS still sent play/pause to Dial. Only when the process exits does the key reach the music app (within 0.4 s).
+- **So Now Playing lives in a helper process,** `dial-remote` in `Dial.app/Contents/Helpers`, with its own bundle id so `quit` and other Apple events still reach Dial. To pass a press on, Dial ends the helper, posts play/pause and starts a new helper. Dial also watches CoreAudio's per-process `IsRunning` (macOS 14.2+; `IsRunningOutput` changes but doesn't notify) and starts a new helper 1 s after another app begins playing.
+- **Side effect:** while Dial holds Now Playing, the keyboard's play/pause key also goes to Dial, and is treated as a dial press.

@@ -1,0 +1,61 @@
+name: Dial
+options:
+  bundleIdPrefix: com.art
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+targets:
+  Dial:
+    type: application
+    platform: macOS
+    sources:
+      - Dial
+    dependencies:
+      - target: DialRemote
+        embed: true
+        codeSign: false
+        copy:
+          destination: wrapper
+          subpath: Contents/Helpers
+    info:
+      path: Dial/Info.plist
+      properties:
+        CFBundleDisplayName: Dial
+        CFBundleShortVersionString: "0.1"
+        CFBundleVersion: "1"
+        LSUIElement: true
+        LSApplicationCategoryType: public.app-category.utilities
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.art.dial
+        PRODUCT_NAME: Dial
+        # A stable local identity keeps Accessibility grants across rebuilds.
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "Doey Local"
+        DEVELOPMENT_TEAM: ""
+        ENABLE_HARDENED_RUNTIME: NO
+        ENABLE_APP_SANDBOX: NO
+        COMBINE_HIDPI_IMAGES: YES
+  DialRemote:
+    type: tool
+    platform: macOS
+    sources:
+      - path: DialRemote
+        excludes:
+          - Info.plist
+    settings:
+      base:
+        PRODUCT_NAME: dial-remote
+        PRODUCT_BUNDLE_IDENTIFIER: com.art.dial.remote
+        # Embedded so the bare executable has its own bundle id.
+        INFOPLIST_FILE: DialRemote/Info.plist
+        CREATE_INFOPLIST_SECTION_IN_BINARY: YES
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "Doey Local"
+        DEVELOPMENT_TEAM: ""
+        ENABLE_HARDENED_RUNTIME: NO
+        SKIP_INSTALL: YES
