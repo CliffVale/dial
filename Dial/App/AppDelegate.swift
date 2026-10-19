@@ -49,12 +49,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             source.onEvent = { [weak self, unowned source] event in
                 self?.model.handle(event, from: source.name)
             }
-            source.start()
+        }
+        encoder.start()
+        remote.start()
+        if settings.testingTools { simulated.start() }
+        settings.onTestingToolsChange = { [weak self] on in
+            guard let self else { return }
+            on ? self.simulated.start() : self.simulated.stop()
         }
 
         debugWindow = DebugLogWindowController(model: model, encoder: encoder)
         dialPanel = DialPanelController(model: model, apps: apps)
-        statusItem = StatusItemController(model: model, encoder: encoder, presentation: dialPanel.presentation)
+        statusItem = StatusItemController(model: model, encoder: encoder, presentation: dialPanel.presentation, settings: settings)
         dialPanel.anchor = { [weak self] in self?.statusItem.anchor }
         hudPanel = HUDPanelController(model: model)
         hudPanel.anchor = { [weak self] in self?.statusItem.anchor }

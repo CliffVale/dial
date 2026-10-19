@@ -145,6 +145,8 @@ Done when they match `appfan-*` and `mission-*`.
 - A Settings window: reorder modes, turn modes on or off, choose press actions.
 - Launch at login (`SMAppService`), Reduce Motion support, and first-run onboarding that explains the Nothing X gesture setup and grants permissions.
 
+**Phase 6: Release.** A universal Release build with the hardened runtime, the app icon rendered from the dial, testing tools off by default, and `Scripts/release.sh`, which writes `dist/Dial-<version>.dmg`. It signs with the local "Doey Local" certificate unless `DIAL_SIGN_IDENTITY` and `DIAL_NOTARY_PROFILE` are set for Developer ID signing and notarisation. The bundle id stays `com.art.dial` (Art's call). See README.md.
+
 ## Don'ts
 
 - Don't put text on the ring; names belong on the knob and in the HUD.

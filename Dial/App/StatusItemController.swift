@@ -16,6 +16,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let model: DialModel
     private let encoder: VolumeEncoder
     private let presentation: DialPresentation
+    private let settings: SettingsStore
+    /// Shown only with testing tools on.
+    private var testingItems: [NSMenuItem] = []
     private var label: NSHostingView<StatusItemLabel>?
     private let menu = NSMenu()
 
@@ -28,10 +31,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let budsItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let accessibilityItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
 
-    init(model: DialModel, encoder: VolumeEncoder, presentation: DialPresentation) {
+    init(model: DialModel, encoder: VolumeEncoder, presentation: DialPresentation, settings: SettingsStore) {
         self.model = model
         self.encoder = encoder
         self.presentation = presentation
+        self.settings = settings
         super.init()
         buildButton()
         buildMenu()
@@ -121,6 +125,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let debug = NSMenuItem(title: "Show Debug Log", action: #selector(showDebugLog), keyEquivalent: "l")
         debug.target = self
         menu.addItem(debug)
+        testingItems.append(debug)
         let reclaim = NSMenuItem(title: "Reclaim Media Buttons", action: #selector(reclaimMediaButtons), keyEquivalent: "")
         reclaim.target = self
         reclaim.toolTip = "Use this if another app started playing and the dial press stopped reaching Dial."
@@ -130,11 +135,16 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let hotkeys = NSMenuItem(title: "Simulate: ⌃⌥← → turn · ⌃⌥Space press · ⌃⌥D double press", action: nil, keyEquivalent: "")
         hotkeys.isEnabled = false
         menu.addItem(hotkeys)
+        testingItems.append(hotkeys)
         menu.addItem(.separator())
+        let about = NSMenuItem(title: "About Dial", action: #selector(showAbout), keyEquivalent: "")
+        about.target = self
+        menu.addItem(about)
         menu.addItem(NSMenuItem(title: "Quit Dial", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
     }
 
     func menuWillOpen(_ menu: NSMenu) {
+        testingItems.forEach { $0.isHidden = !settings.testingTools }
         stateItem.title = "State: \(model.phaseDescription)"
         if let buds = encoder.deviceLabel {
             budsItem.title = "Buds: \(buds) · volume \(model.shouldPark ? "parked" : "pass-through")"
@@ -152,6 +162,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     @objc private func openAccessibilitySettings() {
         Permissions.openAccessibilitySettings()
+    }
+
+    @objc private func showAbout() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(nil)
     }
 
     @objc private func showSettings() {

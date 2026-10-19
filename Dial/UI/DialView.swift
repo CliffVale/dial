@@ -20,6 +20,8 @@ struct DialView: View {
     var onPress: () -> Void = {}
     /// The tether dot belongs under the menu bar glyph; previews can leave it out.
     var showsTether = true
+    /// The app icon leaves the knob's name out; text is noise at icon sizes.
+    var showsKnobLabel = true
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// How many times each segment has become selected; drives its icon tick.
@@ -53,7 +55,8 @@ struct DialView: View {
                 pressCount: model.pressCount,
                 isShown: isShown,
                 turnAnimation: detentAnimation,
-                reduceMotion: reduceMotion
+                reduceMotion: reduceMotion,
+                showsLabel: showsKnobLabel
             )
         }
         .frame(width: DialGeometry.canvas, height: DialGeometry.canvas)

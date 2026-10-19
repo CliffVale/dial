@@ -70,6 +70,7 @@ struct DialSettings: Equatable {
 @Observable
 final class SettingsStore {
     private static let onboardedKey = "hasCompletedOnboarding"
+    private static let testingToolsKey = "testingTools"
 
     var settings: DialSettings {
         didSet {
@@ -83,10 +84,27 @@ final class SettingsStore {
         didSet { UserDefaults.standard.set(hasCompletedOnboarding, forKey: Self.onboardedKey) }
     }
 
+    /// The ⌃⌥ hotkeys that stand in for the dial, and the debug log. On in
+    /// Debug builds; off by default in Release, where they could clash with
+    /// other apps' shortcuts.
+    var testingTools: Bool {
+        didSet {
+            UserDefaults.standard.set(testingTools, forKey: Self.testingToolsKey)
+            onTestingToolsChange?(testingTools)
+        }
+    }
+
     @ObservationIgnored var onChange: ((DialSettings) -> Void)?
+    @ObservationIgnored var onTestingToolsChange: ((Bool) -> Void)?
 
     init() {
         settings = .load()
         hasCompletedOnboarding = UserDefaults.standard.bool(forKey: Self.onboardedKey)
+        #if DEBUG
+        let testingDefault = true
+        #else
+        let testingDefault = false
+        #endif
+        testingTools = UserDefaults.standard.object(forKey: Self.testingToolsKey) as? Bool ?? testingDefault
     }
 }

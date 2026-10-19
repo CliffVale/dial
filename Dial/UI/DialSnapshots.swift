@@ -8,8 +8,14 @@ import SwiftUI
 enum DialSnapshots {
     static let argument = "--snapshots"
 
+    static let iconArgument = "--app-icon"
+
     static func renderIfRequested() -> Bool {
         let args = CommandLine.arguments
+        if let flag = args.firstIndex(of: iconArgument), args.indices.contains(flag + 1) {
+            renderAppIcon(to: URL(fileURLWithPath: args[flag + 1]))
+            return true
+        }
         guard let flag = args.firstIndex(of: argument), args.indices.contains(flag + 1) else { return false }
         let folder = URL(fileURLWithPath: args[flag + 1], isDirectory: true)
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -56,6 +62,18 @@ enum DialSnapshots {
         return true
     }
 
+    /// `Dial --app-icon <file.png>`: the 1024px app icon, always in the dark
+    /// look, the primary theme. Smaller sizes are scaled down from it.
+    private static func renderAppIcon(to url: URL) {
+        let appearance = NSAppearance(named: .darkAqua)!
+        appearance.performAsCurrentDrawingAppearance {
+            let renderer = ImageRenderer(content: AppIconView().environment(\.colorScheme, .dark))
+            renderer.scale = 1
+            guard let image = renderer.cgImage else { return }
+            try? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?.write(to: url)
+        }
+    }
+
     private static func render<V: View>(_ view: V, scheme: ColorScheme, to url: URL) {
         let appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)!
         appearance.performAsCurrentDrawingAppearance {
@@ -77,5 +95,32 @@ private struct DialPreviewCanvas: View {
             .position(x: 360, y: 160)
             .frame(width: 720, height: 440)
             .background(DialColor.canvas)
+    }
+}
+
+
+/// The app icon: the dial itself, Volume selected, on a `canvasRaised` tile in
+/// the macOS icon grid (an 824pt rounded square on a 1024pt canvas).
+struct AppIconView: View {
+    private static let tile: CGFloat = 824
+    /// The dial fills most of the tile, leaving room for the ring's shadow.
+    private static let dialScale: CGFloat = 0.9 * tile / DialGeometry.canvas
+
+    var body: some View {
+        let preview = DialPreview(selection: .volume)
+        ZStack {
+            RoundedRectangle(cornerRadius: 185, style: .continuous)
+                .fill(DialColor.canvasRaised)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 185, style: .continuous)
+                        .strokeBorder(DialColor.hairline, lineWidth: 4)
+                )
+                .frame(width: Self.tile, height: Self.tile)
+                .shadow(color: .black.opacity(0.3), radius: 14, y: 10)
+            DialView(model: preview.model, presentation: preview.presentation, showsKnobLabel: false)
+                .scaleEffect(Self.dialScale)
+                .offset(y: 8)
+        }
+        .frame(width: 1024, height: 1024)
     }
 }

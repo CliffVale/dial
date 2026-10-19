@@ -113,6 +113,19 @@ struct SettingsView: View {
                 }
                 Divider().overlay(DialColor.hairline)
                 row {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Testing tools")
+                        Text("⌃⌥ ← → turn, ⌃⌥Space presses, ⌃⌥D double presses, plus the debug log")
+                            .font(DialFont.caption)
+                            .foregroundStyle(DialColor.inkMuted)
+                    }
+                    Spacer()
+                    Toggle("", isOn: $store.testingTools)
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                }
+                Divider().overlay(DialColor.hairline)
+                row {
                     Text("Reduce motion")
                     Spacer()
                     Text(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? "On, from System Settings" : "Follows System Settings")

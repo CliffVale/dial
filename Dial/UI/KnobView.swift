@@ -16,6 +16,7 @@ struct KnobView: View {
     let isShown: Bool
     let turnAnimation: Animation?
     let reduceMotion: Bool
+    var showsLabel = true
 
     @State private var isPressed = false
     @State private var glowScale: CGFloat = 1
@@ -28,7 +29,9 @@ struct KnobView: View {
                 .rotationEffect(.degrees(angle))
                 .animation(turnAnimation, value: angle)
             rimLight
-            KnobLabel(mode: mode, reduceMotion: reduceMotion)
+            if showsLabel {
+                KnobLabel(mode: mode, reduceMotion: reduceMotion)
+            }
         }
         .frame(width: DialGeometry.canvas, height: DialGeometry.canvas)
         .scaleEffect(isPressed ? DialMotion.pressScale : 1)

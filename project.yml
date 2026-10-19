@@ -8,6 +8,12 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     MACOSX_DEPLOYMENT_TARGET: "14.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+  configs:
+    # Notarisation needs the hardened runtime; Debug stays without it.
+    Release:
+      ENABLE_HARDENED_RUNTIME: YES
 targets:
   Dial:
     type: application
@@ -25,19 +31,20 @@ targets:
       path: Dial/Info.plist
       properties:
         CFBundleDisplayName: Dial
-        CFBundleShortVersionString: "0.1"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSHumanReadableCopyright: "A control surface for the CMF Buds Pro 2 Smart Dial."
         LSUIElement: true
         LSApplicationCategoryType: public.app-category.utilities
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.art.dial
         PRODUCT_NAME: Dial
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # A stable local identity keeps Accessibility grants across rebuilds.
         CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: "Doey Local"
         DEVELOPMENT_TEAM: ""
-        ENABLE_HARDENED_RUNTIME: NO
         ENABLE_APP_SANDBOX: NO
         COMBINE_HIDPI_IMAGES: YES
   DialRemote:
@@ -57,5 +64,4 @@ targets:
         CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: "Doey Local"
         DEVELOPMENT_TEAM: ""
-        ENABLE_HARDENED_RUNTIME: NO
         SKIP_INSTALL: YES
