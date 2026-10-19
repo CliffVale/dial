@@ -10,7 +10,7 @@ Requires macOS 14 or later, on Apple silicon or Intel.
 
 ## Install
 
-1. Open `Dial-1.0.dmg` and drag **Dial** into **Applications**.
+1. Download `Dial-1.0.dmg` from [Releases](https://github.com/athulrajt/dial/releases), open it and drag **Dial** into **Applications**.
 2. Open Dial from Applications. On another Mac, see [Opening on other Macs](#opening-on-other-macs) first.
 3. Follow the setup guide that opens on first launch:
    - **Nothing X:** in the Nothing X app, set the Smart Dial's gestures to press → Play/Pause, double press → Next track, rotate → Volume.
@@ -86,3 +86,7 @@ build/Build/Products/Debug/Dial.app/Contents/MacOS/Dial --app-icon Dial/Assets.x
 ```
 
 Then scale the smaller sizes from it with `sips`.
+
+## Licence
+
+MIT. See [LICENSE](LICENSE). Not affiliated with Nothing or CMF.
