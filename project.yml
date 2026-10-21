@@ -47,6 +47,24 @@ targets:
         DEVELOPMENT_TEAM: ""
         ENABLE_APP_SANDBOX: NO
         COMBINE_HIDPI_IMAGES: YES
+      configs:
+        Debug:
+          ENABLE_TESTABILITY: YES
+  DialTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - DialTests
+    dependencies:
+      - target: Dial
+    settings:
+      base:
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        PRODUCT_BUNDLE_IDENTIFIER: com.art.dial.tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "Doey Local"
+        DEVELOPMENT_TEAM: ""
   DialRemote:
     type: tool
     platform: macOS
@@ -65,3 +83,15 @@ targets:
         CODE_SIGN_IDENTITY: "Doey Local"
         DEVELOPMENT_TEAM: ""
         SKIP_INSTALL: YES
+schemes:
+  Dial:
+    build:
+      targets:
+        Dial: all
+        DialRemote: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - DialTests
