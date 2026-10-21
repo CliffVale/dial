@@ -23,6 +23,13 @@ final class VolumeEncoder: InputSource {
     /// The park value stays within this range so a turn never hits a limit.
     static let parkRange: ClosedRange<Float32> = 0.25...0.75
 
+    /// Steps for one volume report: parked, each report is exactly one click;
+    /// unparked, quick clicks can merge into one report of two steps.
+    static func steps(forDelta delta: Float32, parked: Bool) -> Int {
+        if parked { return 1 }
+        return max(1, Int((abs(delta) / Self.step).rounded()))
+    }
+
     private static let echoWindow: TimeInterval = 0.4
     private static let echoTolerance: Float32 = 0.032
     private static let burstWindow: TimeInterval = 0.05
@@ -193,14 +200,7 @@ final class VolumeEncoder: InputSource {
             return
         }
 
-        let steps: Int
-        if parking {
-            // Parked, each report is exactly one click.
-            steps = 1
-        } else {
-            // Unparked, quick clicks can merge into one report of two steps.
-            steps = max(1, Int((abs(delta) / Self.step).rounded()))
-        }
+        let steps = Self.steps(forDelta: delta, parked: parking)
         let signed = delta > 0 ? steps : -steps
         log("volume", "\(fmt(previous)) → \(fmt(value))  Δ\(String(format: "%+.4f", delta))  → turn(\(signed > 0 ? "+" : "")\(signed))")
         onEvent?(.turn(signed))
